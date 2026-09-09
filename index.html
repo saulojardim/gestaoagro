@@ -184,11 +184,11 @@
 <script>
 /* ======================= BANCO (IndexedDB, offline) ======================= */
 const DB="rebanho_v2"; let db;
-function abrirDB(){return new Promise((ok,er)=>{const r=indexedDB.open(DB,3);
+function abrirDB(){return new Promise((ok,er)=>{const r=indexedDB.open(DB,4);
   r.onupgradeneeded=e=>{const d=e.target.result;
     const criar=n=>{if(!d.objectStoreNames.contains(n))d.createObjectStore(n,{keyPath:"id"});};
     criar("propriedades"); criar("marcas"); criar("lotes");
-    criar("animais"); criar("eventos"); criar("medicamentos"); criar("perfil");
+    criar("animais"); criar("eventos"); criar("medicamentos"); criar("perfil"); criar("pastos");
   };
   r.onsuccess=e=>{db=e.target.result;ok();}; r.onerror=er;});}
 function tx(s,m="readonly"){return db.transaction(s,m).objectStore(s);}
@@ -218,9 +218,9 @@ const COW=`<svg class="cattle" viewBox="0 0 640 512" xmlns="http://www.w3.org/20
 
 /* Carrega tudo de uma vez e monta em memória */
 async function tudo(){
-  const [propriedades,marcas,lotes,animais,eventos,medicamentos]=await Promise.all(
-    ["propriedades","marcas","lotes","animais","eventos","medicamentos"].map(getAll));
-  return {propriedades,marcas,lotes,animais,eventos,medicamentos};
+  const [propriedades,marcas,lotes,animais,eventos,medicamentos,pastos]=await Promise.all(
+    ["propriedades","marcas","lotes","animais","eventos","medicamentos","pastos"].map(getAll));
+  return {propriedades,marcas,lotes,animais,eventos,medicamentos,pastos};
 }
 const propDoAnimal=(a,lotes)=>{const l=lotes.find(x=>x.id===a.loteAtualId);return l?l.propriedadeId:null;};
 
@@ -313,20 +313,34 @@ const mod=(ic,t,d,fn)=>`<div class="mod" onclick="${fn}"><div class="mic">${ic}<
 
 async function verPropriedade(pid){
   const p=await get("propriedades",pid);
-  const {lotes,animais}=await tudo();
+  const {lotes,animais,pastos}=await tudo();
   const meusLotes=lotes.filter(l=>l.propriedadeId===pid);
   const conta=lid=>animais.filter(a=>a.loteAtualId===lid&&a.status==="Ativo").length;
+  const nomeLote=id=>(lotes.find(l=>l.id===id)||{}).nome||"—";
   let lst=meusLotes.length?"":`<div class="meta" style="padding:8px 4px">Nenhum lote nesta propriedade.</div>`;
   for(const l of meusLotes)lst+=`<div class="card row rt" onclick="verLote('${l.id}')">
     <div><div class="ti">${esc(l.nome)}</div>${l.descricao?`<div class="meta">${esc(l.descricao)}</div>`:""}</div>
     <span class="badge">${conta(l.id)} 🐄</span></div>`;
+  const meusPastos=pastos.filter(pt=>pt.propriedadeId===pid);
+  let plst=meusPastos.length?"":`<div class="meta" style="padding:8px 4px">Nenhum pasto cadastrado.</div>`;
+  for(const pt of meusPastos)plst+=`<div class="card rt" onclick="formEditarPasto('${pt.id}')">
+    <div class="ti">${esc(pt.nome)}</div>
+    <div class="meta" style="margin-top:2px">${[pt.areaHa!=null?pt.areaHa+" ha":"",pt.tipoCapim].filter(Boolean).map(esc).join(" · ")||"—"}</div>
+    <div class="meta" style="margin-top:6px">${pastoStatusChip(pt)}${pt.status==="Ocupado"&&pt.loteId?`<span class="chip chip-lote">▦ ${esc(nomeLote(pt.loteId))}</span>`:""}</div></div>`;
   $t.innerHTML=`<button class="voltar" onclick="irAba('painel')">‹ Painel</button>
     <div class="card"><div class="ti" style="font-size:20px">${esc(p.nome)}</div>
       <div class="meta">📍 ${esc(p.local||"")}</div></div>
     <button class="btn btn-sec" onclick="formNovoLote('${pid}')">+ Novo lote nesta propriedade</button>
     <div class="h3">Lotes</div>${lst}
-    <button class="btn-fant" onclick="apagarPropriedade('${pid}')">Apagar propriedade</button>`;
+    <button class="btn btn-sec" style="margin-top:10px" onclick="formNovoPasto('${pid}')">+ Novo pasto</button>
+    <div class="h3">Pastos</div>${plst}
+    <button class="btn-fant" style="margin-top:12px" onclick="apagarPropriedade('${pid}')">Apagar propriedade</button>`;
 }
+const pastoStatusChip=pt=>{
+  const m={Ocupado:["chip-lote","Ocupado"],Descanso:["chip-marca","Em descanso"],Livre:["chip-off","Livre"]};
+  const [cls,txt]=m[pt.status]||m.Livre;
+  return `<span class="chip ${cls}">${txt}</span>`;
+};
 
 /* ======================= LOTES ======================= */
 async function telaLotes(){
@@ -532,6 +546,7 @@ function menuAdicionar(){abrir(`<h2>Adicionar</h2>
   <div class="sheet-item rt" onclick="fechar();formSaida()"><span class="si">↩</span>Saída de animal (morte/venda)</div>
   <div class="sheet-item rt" onclick="fechar();gerenciarMedicamentos()"><span class="si">💊</span>Cadastrar medicamento</div>
   <div class="sheet-item rt" onclick="fechar();formNovoLote()"><span class="si">▤</span>Novo lote</div>
+  <div class="sheet-item rt" onclick="fechar();formNovoPasto()"><span class="si">🌱</span>Novo pasto</div>
   <div class="sheet-item rt" onclick="fechar();formNovaPropriedade()"><span class="si">🏡</span>Nova propriedade</div>
   <button class="btn btn-sec" style="margin-top:14px" onclick="fechar()">Cancelar</button>`);}
 function menuConfig(){abrir(`<h2>Menu</h2>
@@ -567,6 +582,71 @@ async function formNovoLote(propFixa){
       <button class="btn" onclick="salvarLote()">Salvar</button></div>`);}
 async function salvarLote(){const n=val("l_nome");if(!n)return alert("Dê um nome ao lote.");
   await put("lotes",{id:uid(),nome:n,descricao:val("l_desc"),propriedadeId:val("l_prop"),criadoEm:Date.now()});fechar();render();}
+
+/* ---------- PASTOS / PIQUETES ---------- */
+async function formNovoPasto(propFixa){
+  const {propriedades,lotes}=await tudo();
+  if(!propriedades.length){fechar();return alert("Cadastre uma propriedade primeiro.");}
+  const optProp=propriedades.map(p=>`<option value="${p.id}" ${p.id===propFixa?"selected":""}>${esc(p.nome)}</option>`).join("");
+  const optLotes=`<option value="">— selecione —</option>`+lotes.map(l=>{const p=propriedades.find(x=>x.id===l.propriedadeId);return`<option value="${l.id}">${esc(l.nome)}${p?` — ${esc(p.nome)}`:""}</option>`;}).join("");
+  abrir(`<h2>Novo pasto</h2>
+    <label>Propriedade *</label><select id="pt_prop">${optProp}</select>
+    <label>Nome do pasto *</label><input id="pt_nome" placeholder="Ex: Pasto 1">
+    <label>Área total (ha)</label><input id="pt_area" inputmode="decimal" placeholder="Ex: 12">
+    <label>Tipo de capim</label><input id="pt_capim" placeholder="Ex: Braquiária, Mombaça, Tifton…">
+    <label>Situação</label>
+    <select id="pt_status" onchange="togglePastoLote()">
+      <option value="Livre">Livre</option>
+      <option value="Ocupado">Ocupado (com lote)</option>
+      <option value="Descanso">Em descanso (capim recuperando)</option></select>
+    <div id="grp_pasto_lote" style="display:none"><label>Lote no pasto</label><select id="pt_lote">${optLotes}</select></div>
+    <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+      <button class="btn" onclick="salvarPasto()">Salvar</button></div>`);
+}
+function togglePastoLote(pref){
+  const el=document.getElementById(pref?"pe_status":"pt_status");
+  const grp=document.getElementById(pref?"grp_pasto_lote_e":"grp_pasto_lote");
+  grp.style.display=el.value==="Ocupado"?"block":"none";
+}
+async function salvarPasto(){
+  const nome=val("pt_nome");if(!nome)return alert("Dê um nome ao pasto.");
+  const status=val("pt_status");
+  await put("pastos",{id:uid(),propriedadeId:val("pt_prop"),nome,areaHa:numBR("pt_area"),
+    tipoCapim:val("pt_capim"),status,loteId:status==="Ocupado"?(val("pt_lote")||null):null,criadoEm:Date.now()});
+  fechar();render();
+}
+async function formEditarPasto(id){
+  const pt=await get("pastos",id);
+  const {propriedades,lotes}=await tudo();
+  const optProp=propriedades.map(p=>`<option value="${p.id}" ${p.id===pt.propriedadeId?"selected":""}>${esc(p.nome)}</option>`).join("");
+  const optLotes=`<option value="">— selecione —</option>`+lotes.map(l=>{const p=propriedades.find(x=>x.id===l.propriedadeId);return`<option value="${l.id}" ${l.id===pt.loteId?"selected":""}>${esc(l.nome)}${p?` — ${esc(p.nome)}`:""}</option>`;}).join("");
+  const st=pt.status||"Livre";
+  const opt=(v,t)=>`<option value="${v}" ${v===st?"selected":""}>${t}</option>`;
+  abrir(`<h2>Editar pasto</h2>
+    <label>Propriedade *</label><select id="pe_prop">${optProp}</select>
+    <label>Nome do pasto *</label><input id="pe_nome" value="${esc(pt.nome||"")}">
+    <label>Área total (ha)</label><input id="pe_area" inputmode="decimal" value="${pt.areaHa??""}">
+    <label>Tipo de capim</label><input id="pe_capim" value="${esc(pt.tipoCapim||"")}">
+    <label>Situação</label>
+    <select id="pe_status" onchange="togglePastoLote(true)">
+      ${opt("Livre","Livre")}${opt("Ocupado","Ocupado (com lote)")}${opt("Descanso","Em descanso (capim recuperando)")}</select>
+    <div id="grp_pasto_lote_e" style="display:${st==="Ocupado"?"block":"none"}"><label>Lote no pasto</label><select id="pe_lote">${optLotes}</select></div>
+    <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+      <button class="btn" onclick="salvarEdicaoPasto('${id}')">Salvar</button></div>
+    <button class="btn-fant" style="margin-top:10px" onclick="excluirPasto('${id}')">Apagar pasto</button>`);
+}
+async function salvarEdicaoPasto(id){
+  const nome=val("pe_nome");if(!nome)return alert("Dê um nome ao pasto.");
+  const pt=await get("pastos",id);
+  pt.propriedadeId=val("pe_prop");pt.nome=nome;pt.areaHa=numBR("pe_area");pt.tipoCapim=val("pe_capim");
+  pt.status=val("pe_status");pt.loteId=pt.status==="Ocupado"?(val("pe_lote")||null):null;
+  await put("pastos",pt);fechar();render();
+}
+async function excluirPasto(id){
+  const pt=await get("pastos",id);
+  if(!confirm(`Apagar o pasto "${pt?pt.nome:""}"?`))return;
+  await del("pastos",id);fechar();render();
+}
 
 async function formNovoAnimal(loteFixo,nascimento){
   const {propriedades,marcas,lotes,animais}=await tudo();
@@ -926,14 +1006,14 @@ async function apagarAnimal(id){if(!confirm("Apagar este animal e seu histórico
 /* ======================= BACKUP ======================= */
 async function exportar(){
   const d={versao:2,exportadoEm:new Date().toISOString()};
-  for(const s of["propriedades","marcas","lotes","animais","eventos","medicamentos","perfil"])d[s]=await getAll(s);
+  for(const s of["propriedades","marcas","lotes","animais","eventos","medicamentos","perfil","pastos"])d[s]=await getAll(s);
   const b=new Blob([JSON.stringify(d,null,2)],{type:"application/json"}),u=URL.createObjectURL(b),a=document.createElement("a");
   a.href=u;a.download=`rebanho-backup-${hoje()}.json`;a.click();URL.revokeObjectURL(u);
 }
 function importar(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();
   r.onload=async()=>{try{const d=JSON.parse(r.result);
     if(!confirm("Importar substitui TODOS os dados atuais. Continuar?"))return;
-    for(const s of["propriedades","marcas","lotes","animais","eventos","medicamentos","perfil"]){
+    for(const s of["propriedades","marcas","lotes","animais","eventos","medicamentos","perfil","pastos"]){
       for(const it of await getAll(s))await del(s,it.id);for(const it of(d[s]||[]))await put(s,it);}
     alert("Backup importado.");render();
   }catch(e){alert("Arquivo inválido.");}};r.readAsText(f);}
