@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Rebanho">
 <meta name="theme-color" content="#1F5130">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
 <title>Gestão do Rebanho</title>
 <style>
   :root{
@@ -549,6 +551,14 @@ function importar(inp){const f=inp.files[0];if(!f)return;const r=new FileReader(
 /* ======================= INICIAR ======================= */
 abrirDB().then(render).catch(()=>{
   $t.innerHTML=`<div class="vazio"><b>Erro ao abrir o banco.</b><div class="meta">Use um navegador normal (não janela privada).</div></div>`;});
+</script>
+<script>
+/* Registra o service worker -> faz o app funcionar offline (sem sinal) */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').catch(err=>console.log('SW falhou:',err));
+  });
+}
 </script>
 </body>
 </html>
