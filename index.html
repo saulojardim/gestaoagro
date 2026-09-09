@@ -534,7 +534,18 @@ function menuAdicionar(){abrir(`<h2>Adicionar</h2>
   <div class="sheet-item rt" onclick="fechar();formNovoLote()"><span class="si">▤</span>Novo lote</div>
   <div class="sheet-item rt" onclick="fechar();formNovaPropriedade()"><span class="si">🏡</span>Nova propriedade</div>
   <button class="btn btn-sec" style="margin-top:14px" onclick="fechar()">Cancelar</button>`);}
-function menuConfig(){irAba('perfil');}
+function menuConfig(){abrir(`<h2>Menu</h2>
+  <div class="sheet-item rt" onclick="fechar();telaManejo()"><span class="si">☑</span>Manejo — marcar, medicar, trocar de lote</div>
+  <div class="sheet-item rt" onclick="fechar();gerenciarMedicamentos()"><span class="si">💊</span>Medicamentos</div>
+  <div class="sheet-item rt" onclick="fechar();gerenciarMarcas()"><span class="si">🏷</span>Marcas / donos</div>
+  <div class="sheet-item rt" onclick="fechar();formNovaPropriedade()"><span class="si">🏡</span>Nova propriedade</div>
+  <div class="sheet-item rt" onclick="fechar();irAba('perfil')"><span class="si">💾</span>Backup e Perfil</div>
+  <div class="sheet-item rt" onclick="fechar();sobreApp()"><span class="si">ℹ️</span>Sobre o app</div>
+  <button class="btn btn-sec" style="margin-top:14px" onclick="fechar()">Fechar</button>`);}
+function sobreApp(){abrir(`<h2>Gestão do Rebanho</h2>
+  <div class="meta">Controle de rebanho por lote — vacinação, manejo, nascimentos, saídas e histórico por animal.</div>
+  <div class="meta" style="margin-top:8px">Funciona offline. Os dados ficam guardados neste aparelho — lembre de fazer backup em Perfil.</div>
+  <button class="btn" style="margin-top:16px" onclick="fechar()">Fechar</button>`);}
 
 function formNovaPropriedade(){abrir(`<h2>Nova propriedade</h2>
   <label>Nome *</label><input id="p_nome" placeholder="Ex: Fazenda Garrafão">
