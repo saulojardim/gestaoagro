@@ -119,6 +119,10 @@
   .chip-f{background:#fbe9ef;color:#a13a63;} .chip-m{background:#e6eef6;color:#2f6fa8;}
   .chip-off{background:#eee;color:#777;} .chip-marca{background:#fff4d6;color:#8a6a12;}
   .chip-id{background:#eef2ef;color:#5a6b5e;}
+  .avatar{width:64px;height:64px;border-radius:50%;background:var(--verde-lite);color:var(--verde);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:22px;overflow:hidden;}
+  .avatar img{width:100%;height:100%;object-fit:cover;}
+  .avatar-wrap{position:relative;width:64px;height:64px;flex-shrink:0;cursor:pointer;}
+  .avatar-cam{position:absolute;right:-3px;bottom:-3px;width:25px;height:25px;border-radius:50%;background:var(--verde);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;border:2px solid #fff;}
   .voltar{background:none;color:var(--verde-esc);font-weight:600;font-size:15px;padding:0;margin:2px 0 12px;}
   .h3{margin:18px 4px 10px;font-size:15px;color:var(--muted);font-weight:700;}
   .evt{border-left:3px solid var(--verde);padding:2px 0 12px 12px;margin-left:4px;}
@@ -180,11 +184,11 @@
 <script>
 /* ======================= BANCO (IndexedDB, offline) ======================= */
 const DB="rebanho_v2"; let db;
-function abrirDB(){return new Promise((ok,er)=>{const r=indexedDB.open(DB,2);
+function abrirDB(){return new Promise((ok,er)=>{const r=indexedDB.open(DB,3);
   r.onupgradeneeded=e=>{const d=e.target.result;
     const criar=n=>{if(!d.objectStoreNames.contains(n))d.createObjectStore(n,{keyPath:"id"});};
     criar("propriedades"); criar("marcas"); criar("lotes");
-    criar("animais"); criar("eventos"); criar("medicamentos");
+    criar("animais"); criar("eventos"); criar("medicamentos"); criar("perfil");
   };
   r.onsuccess=e=>{db=e.target.result;ok();}; r.onerror=er;});}
 function tx(s,m="readonly"){return db.transaction(s,m).objectStore(s);}
@@ -207,6 +211,9 @@ const TIPOS=["Vacinação","Medicamento","Marcação","Nascimento","Movimentaç�
 const VIAS=["Injeção","Pour on","Spray","Brinco","Ingestão","Outro"];
 const TIPOS_MED=["Vacina","Antibiótico","Vermífugo","Anti-inflamatório","Carrapaticida/Mosquicida","Vitamina/Mineral","Hormônio","Outro"];
 const optTipoMed=sel=>TIPOS_MED.map(t=>`<option value="${t}" ${t===sel?"selected":""}>${t}</option>`).join("");
+const svgMacho=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2f7bef" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.5" cy="14.5" r="6"/><line x1="13.8" y1="10.2" x2="20" y2="4"/><polyline points="14.5 4 20 4 20 9.5"/></svg>`;
+const svgFemea=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#e24fa0" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><line x1="12" y1="15" x2="12" y2="22"/><line x1="8.5" y1="18.5" x2="15.5" y2="18.5"/></svg>`;
+const sexoChip=s=>s==="F"?`<span class="chip chip-f">${svgFemea}</span>`:`<span class="chip chip-m">${svgMacho}</span>`;
 const COW=`<svg class="cattle" viewBox="0 0 640 512" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M96 224c0-53 43-96 96-96h256c53 0 96 43 96 96v32c0 71-57 128-128 128H224c-71 0-128-57-128-128v-32zm40-140c-8-20-30-52-70-52-6 0-10 6-8 12 8 26 30 52 60 60 9 3 21-11 18-20zm368 0c-3 9 9 23 18 20 30-8 52-34 60-60 2-6-2-12-8-12-40 0-62 32-70 52zM240 300a20 20 0 100-40 20 20 0 000 40zm160 0a20 20 0 100-40 20 20 0 000 40z"/></svg>`;
 
 /* Carrega tudo de uma vez e monta em memória */
@@ -236,7 +243,7 @@ async function vacinarLote(loteId,vac,data,hora){
 }
 
 /* ======================= NAV ======================= */
-const $t=document.getElementById("tela"); let aba="painel";
+const $t=document.getElementById("tela"); let aba="painel"; let _perfilFoto="";
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
   aba=b.dataset.aba;
   document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("ativo",x===b));
@@ -373,7 +380,7 @@ async function telaAnimais(){
 function filtrar(){const t=val("busca").toLowerCase();
   document.querySelectorAll("#lista .card").forEach(c=>c.style.display=c.dataset.b.includes(t)?"":"none");}
 function linhaAnimal(a,nomeLote,mostraLote){
-  const sx=a.sexo==="F"?`<span class="chip chip-f">Fêmea</span>`:`<span class="chip chip-m">Macho</span>`;
+  const sx=sexoChip(a.sexo);
   const st=a.status!=="Ativo"?`<span class="chip chip-off">${a.status}</span>`:"";
   const idchip=(a.brinco||a.nome)?`<span class="chip chip-id">${codAnimal(a)}</span>`:"";
   return `<div class="card rt" data-b="${esc(((a.brinco||"")+" "+(a.nome||"")+" "+codAnimal(a)).toLowerCase())}" onclick="verAnimal('${a.id}')">
@@ -400,7 +407,7 @@ async function verAnimal(id){
   $t.innerHTML=`<button class="voltar" onclick="voltar()">‹ Voltar</button>
     <div class="card"><div class="ti" style="font-size:20px">${esc(rotulo(a))}${a.brinco&&a.nome?` · ${esc(a.nome)}`:""} <span class="chip chip-id">${codAnimal(a)}</span></div>
       <div class="meta" style="margin-top:6px">
-        ${a.sexo==="F"?`<span class="chip chip-f">Fêmea</span>`:`<span class="chip chip-m">Macho</span>`}
+        ${sexoChip(a.sexo)}
         <span class="chip chip-lote">▦ ${esc(nomeLote)}</span>
         ${marca?`<span class="chip chip-marca">${esc(marca.sigla)}</span>`:""}
         ${a.status!=="Ativo"?`<span class="chip chip-off">${a.status}</span>`:""}</div>
@@ -422,7 +429,28 @@ async function verAnimal(id){
 /* ======================= PERFIL / CONFIG ======================= */
 async function telaPerfil(){
   const {propriedades,marcas,lotes,animais,eventos,medicamentos}=await tudo();
-  $t.innerHTML=`
+  const p=await get("perfil","perfil");
+  const perfilHTML = p ? `
+    <div class="card" style="display:flex;align-items:center;gap:14px">
+      <div class="avatar-wrap" onclick="formPerfil()">
+        <div class="avatar">${avatarHTML(p.foto,p.nome)}</div><div class="avatar-cam">📷</div>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="ti" style="font-size:19px">${esc(p.nome)}</div>
+        ${p.funcao?`<div class="meta">${esc(p.funcao)}</div>`:""}
+        ${p.localizacao?`<div class="meta">📍 ${esc(p.localizacao)}</div>`:""}
+        ${p.email?`<div class="meta">✉️ ${esc(p.email)}</div>`:""}
+        ${p.telefone?`<div class="meta">📞 ${esc(p.telefone)}</div>`:""}
+      </div>
+      <button class="btn-fant" style="padding:6px;color:var(--verde)" onclick="formPerfil()">✎</button>
+    </div>` : `
+    <div class="card" style="text-align:center">
+      <div class="avatar" style="margin:4px auto 10px">👤</div>
+      <b>Crie seu perfil</b>
+      <div class="meta" style="margin:4px 0 12px">Cadastre nome, função, foto e contatos.</div>
+      <button class="btn" style="margin:0" onclick="formPerfil()">Criar perfil</button>
+    </div>`;
+  $t.innerHTML=perfilHTML+`
     <div class="card"><div class="ti">Resumo</div>
       <div class="meta" style="margin-top:4px">${propriedades.length} propriedades · ${lotes.length} lotes · ${animais.length} animais · ${eventos.length} eventos</div></div>
     <div class="sechead"><h2 style="font-size:16px">Cadastros</h2></div>
@@ -436,6 +464,47 @@ async function telaPerfil(){
     <button class="btn" onclick="exportar()">⬇ Exportar backup (.json)</button>
     <label class="btn btn-sec" style="text-align:center;cursor:pointer">⬆ Importar backup
       <input type="file" accept="application/json" onchange="importar(this)" style="display:none"></label>`;
+}
+/* ---------- Perfil do usuário ---------- */
+const iniciais=nome=>((nome||"").trim().split(/\s+/).slice(0,2).map(s=>s[0]||"").join("").toUpperCase()||"?");
+const avatarHTML=(foto,nome)=>foto?`<img src="${foto}" alt="">`:`<span>${esc(iniciais(nome))}</span>`;
+function lerFotoRedimensionada(file,cb){
+  const rd=new FileReader();
+  rd.onload=e=>{const img=new Image();
+    img.onload=()=>{let w=img.width,h=img.height;const max=400;
+      if(w>h&&w>max){h=Math.round(h*max/w);w=max;}else if(h>max){w=Math.round(w*max/h);h=max;}
+      const c=document.createElement("canvas");c.width=w;c.height=h;
+      c.getContext("2d").drawImage(img,0,0,w,h);cb(c.toDataURL("image/jpeg",0.82));};
+    img.src=e.target.result;};
+  rd.readAsDataURL(file);
+}
+function pickFoto(input){const f=input.files[0];if(!f)return;
+  lerFotoRedimensionada(f,d=>{_perfilFoto=d;document.getElementById("pf_avatar").innerHTML=`<img src="${d}" alt="">`;});}
+async function formPerfil(){
+  const p=(await get("perfil","perfil"))||{};
+  _perfilFoto=p.foto||"";
+  abrir(`<h2>${p.nome?"Editar perfil":"Criar perfil"}</h2>
+    <div style="display:flex;justify-content:center;margin:6px 0 8px">
+      <div class="avatar-wrap" onclick="document.getElementById('pf_file').click()">
+        <div class="avatar" id="pf_avatar">${avatarHTML(_perfilFoto,p.nome)}</div><div class="avatar-cam">📷</div>
+      </div>
+    </div>
+    <input type="file" id="pf_file" accept="image/*" style="display:none" onchange="pickFoto(this)">
+    <label>Nome *</label><input id="pf_nome" value="${esc(p.nome||"")}">
+    <label>Função na gestão</label><input id="pf_funcao" value="${esc(p.funcao||"")}" placeholder="Ex: Proprietário, Gerente, Veterinário…">
+    <label>Localização</label><input id="pf_local" value="${esc(p.localizacao||"")}" placeholder="Ex: Campos - RJ">
+    <label>E-mail</label><input id="pf_email" type="email" value="${esc(p.email||"")}" placeholder="opcional">
+    <label>Telefone</label><input id="pf_tel" type="tel" value="${esc(p.telefone||"")}" placeholder="Ex: (22) 99999-9999">
+    <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+      <button class="btn" onclick="salvarPerfil()">Salvar</button></div>`);
+}
+async function salvarPerfil(){
+  const nome=val("pf_nome");if(!nome)return alert("Informe seu nome.");
+  const p=(await get("perfil","perfil"))||{id:"perfil"};
+  p.id="perfil";p.nome=nome;p.funcao=val("pf_funcao");p.localizacao=val("pf_local");
+  p.email=val("pf_email");p.telefone=val("pf_tel");p.foto=_perfilFoto||"";
+  await put("perfil",p);
+  fechar();telaPerfil();
 }
 async function gerenciarMarcas(){
   const marcas=await getAll("marcas");
@@ -846,14 +915,14 @@ async function apagarAnimal(id){if(!confirm("Apagar este animal e seu histórico
 /* ======================= BACKUP ======================= */
 async function exportar(){
   const d={versao:2,exportadoEm:new Date().toISOString()};
-  for(const s of["propriedades","marcas","lotes","animais","eventos","medicamentos"])d[s]=await getAll(s);
+  for(const s of["propriedades","marcas","lotes","animais","eventos","medicamentos","perfil"])d[s]=await getAll(s);
   const b=new Blob([JSON.stringify(d,null,2)],{type:"application/json"}),u=URL.createObjectURL(b),a=document.createElement("a");
   a.href=u;a.download=`rebanho-backup-${hoje()}.json`;a.click();URL.revokeObjectURL(u);
 }
 function importar(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();
   r.onload=async()=>{try{const d=JSON.parse(r.result);
     if(!confirm("Importar substitui TODOS os dados atuais. Continuar?"))return;
-    for(const s of["propriedades","marcas","lotes","animais","eventos","medicamentos"]){
+    for(const s of["propriedades","marcas","lotes","animais","eventos","medicamentos","perfil"]){
       for(const it of await getAll(s))await del(s,it.id);for(const it of(d[s]||[]))await put(s,it);}
     alert("Backup importado.");render();
   }catch(e){alert("Arquivo inválido.");}};r.readAsText(f);}
