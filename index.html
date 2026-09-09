@@ -401,6 +401,7 @@ async function verAnimal(id){
         ${mae?`Mãe: <b onclick="verAnimal('${mae.id}')" style="color:var(--verde);cursor:pointer">${esc(rotulo(mae))}</b><br>`:""}
         ${filhos.length?`Filhos: ${filhos.length}`:""}</div>
       ${a.saida?blocoSaida(a.saida):""}</div>
+    <button class="btn btn-sec" onclick="formEditarAnimal('${id}')">✎ Editar dados</button>
     <div class="lado"><button class="btn" onclick="formEvento('${id}','Vacinação')">💉 Vacinar</button>
       <button class="btn btn-sec" onclick="formMover('${id}')">↷ Mover lote</button></div>
     <button class="btn btn-sec" onclick="formEvento('${id}')">+ Registrar evento de manejo</button>
@@ -594,6 +595,62 @@ async function salvarSaida(animalId){
   await registrarEvento(id,tipo,data,det);   // já muda o status para Morto/Vendido
   const a=await get("animais",id); a.saida=saida; await put("animais",a);
   fechar(); irAba('animais');
+}
+
+/* ---------- EDITAR DADOS DO ANIMAL ---------- */
+async function formEditarAnimal(id){
+  const a=await get("animais",id);
+  const {propriedades,marcas,lotes,animais}=await tudo();
+  const optLotes=lotes.map(l=>{const p=propriedades.find(x=>x.id===l.propriedadeId);
+    return`<option value="${l.id}" ${l.id===a.loteAtualId?"selected":""}>${esc(l.nome)}${p?` — ${esc(p.nome)}`:""}</option>`;}).join("");
+  const femeas=animais.filter(x=>x.sexo==="F"&&x.id!==id);
+  const optMae=`<option value="">— nenhuma —</option>`+
+    femeas.map(m=>`<option value="${m.id}" ${m.id===a.maeId?"selected":""}>${esc(rotulo(m))}</option>`).join("");
+  const optMarca=`<option value="">— sem marca —</option>`+
+    marcas.map(m=>`<option value="${m.id}" ${m.id===a.marcaId?"selected":""}>${esc(m.sigla)}${m.nome?` · ${esc(m.nome)}`:""}</option>`).join("");
+  const nasceu = a.nascidoNaPropriedade===true;
+  abrir(`<h2>Editar dados ${codAnimal(a)}</h2>
+    <label>Brinco / identificação</label><input id="e_brinco" value="${esc(a.brinco||"")}" placeholder="Opcional">
+    <label>Nome (opcional)</label><input id="e_nome" value="${esc(a.nome||"")}">
+    <label>Sexo *</label><select id="e_sexo">
+      <option value="F" ${a.sexo==="F"?"selected":""}>Fêmea</option>
+      <option value="M" ${a.sexo==="M"?"selected":""}>Macho</option></select>
+    <label>Nasceu na propriedade?</label>
+    <select id="e_nasceu" onchange="toggleOrigemEdit()">
+      <option value="sim" ${nasceu?"selected":""}>Sim — nasceu aqui</option>
+      <option value="nao" ${!nasceu?"selected":""}>Não — comprado</option></select>
+    <div id="grp_nasc_e" style="display:${nasceu?"block":"none"}">
+      <label>Data de nascimento</label><input id="e_nasc" type="date" value="${a.dataNascimento||hoje()}">
+      <label>Mãe (opcional)</label><select id="e_mae">${optMae}</select>
+    </div>
+    <div id="grp_compra_e" style="display:${nasceu?"none":"block"}">
+      <label>Peso de compra (kg vivo)</label><input id="e_pesocompra" inputmode="decimal" value="${a.pesoCompraKg??""}">
+    </div>
+    <label>Marca / dono</label><select id="e_marca">${optMarca}</select>
+    <label>Lote *</label><select id="e_lote">${optLotes}</select>
+    <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+      <button class="btn" onclick="salvarEdicaoAnimal('${id}')">Salvar</button></div>`);}
+function toggleOrigemEdit(){
+  const nasceu=document.getElementById("e_nasceu").value==="sim";
+  document.getElementById("grp_nasc_e").style.display=nasceu?"block":"none";
+  document.getElementById("grp_compra_e").style.display=nasceu?"none":"block";
+}
+async function salvarEdicaoAnimal(id){
+  const a=await get("animais",id);
+  const nasceu=document.getElementById("e_nasceu").value==="sim";
+  a.brinco=val("e_brinco");
+  a.nome=val("e_nome");
+  a.sexo=val("e_sexo");
+  a.nascidoNaPropriedade=nasceu;
+  a.dataNascimento = nasceu ? val("e_nasc") : "";
+  a.pesoCompraKg = nasceu ? null : numBR("e_pesocompra");
+  a.maeId = nasceu ? (val("e_mae")||null) : null;
+  a.marcaId = val("e_marca")||null;
+  const novoLote=val("e_lote");
+  const loteMudou = novoLote && novoLote!==a.loteAtualId;
+  await put("animais",a);
+  if(loteMudou) await moverAnimal(id,novoLote);   // registra a movimentação no histórico
+  fechar(); verAnimal(id);
 }
 
 async function formVacinarLote(loteId){const l=await get("lotes",loteId);
