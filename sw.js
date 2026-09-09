@@ -2,8 +2,8 @@
    Guarda os arquivos do app no aparelho para abrir mesmo sem internet.
    (Os DADOS do gado ficam no IndexedDB, separado deste cache.) */
 
-const CACHE = "rebanho-v2";
-const CORE = ["./", "./index.html", "./manifest.json", "./icon.png"];
+const CACHE = "rebanho-v3";
+const CORE = ["./", "./index.html", "./manifest.json", "./icon.png", "./boi.png", "./bezerro.png"];
 
 // Instala: baixa e guarda os arquivos essenciais
 self.addEventListener("install", e => {

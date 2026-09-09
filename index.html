@@ -152,6 +152,9 @@
     background:#fff;border-top:1px solid var(--linha);display:flex;z-index:30;}
   nav button{flex:1;background:none;color:var(--muted);font-size:11px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;}
   nav button .ic{font-size:21px;line-height:1;} nav button.ativo{color:var(--verde);}
+  .tile img{width:46px;height:46px;object-fit:contain;display:block;}
+  .mic img{width:38px;height:38px;object-fit:contain;display:block;}
+  nav .ic img{width:28px;height:24px;object-fit:contain;display:inline-block;vertical-align:middle;}
 </style>
 </head>
 <body>
@@ -167,7 +170,7 @@
 <nav>
   <button data-aba="painel" class="ativo"><span class="ic">⌂</span>Painel</button>
   <button data-aba="lotes"><span class="ic">▤</span>Lotes</button>
-  <button data-aba="animais"><span class="ic">🐄</span>Animais</button>
+  <button data-aba="animais"><span class="ic"><img src="boi.png" alt=""></span>Animais</button>
   <button data-aba="perfil"><span class="ic">◔</span>Perfil</button>
 </nav>
 
@@ -268,7 +271,7 @@ async function telaPainel(){
   $t.innerHTML=`
     <div class="hero">
       <div class="assinatura">Pecuária que evolui com você</div>
-      <div class="cabeca"><div class="tile">🐂</div><div class="rot">Total do Rebanho</div></div>
+      <div class="cabeca"><div class="tile"><img src="boi.png" alt="boi"></div><div class="rot">Total do Rebanho</div></div>
       <div class="num">${total}</div><div class="peq">animais cadastrados</div>
       <div class="linha"><span style="font-size:20px">📊</span>
         <div class="frase">Mais controle<br>Mais produtividade<br>Um futuro maior</div></div>
@@ -281,7 +284,7 @@ async function telaPainel(){
     <div class="sechead" style="margin-top:22px"><span class="sic">▦</span><h2>Módulos do sistema</h2></div>
     <div class="grid">
       ${mod("▤","Lotes","Incluir ou mover gado entre lotes.","irAba('lotes')")}
-      ${mod("🐄","Nascimento de Bezerro","Registro de bezerros com vínculo da mãe.","formNovoAnimal(null,true)")}
+      ${mod('<img src="bezerro.png" alt="">',"Nascimento de Bezerro","Registro de bezerros com vínculo da mãe.","formNovoAnimal(null,true)")}
       ${mod("☑","Eventos de Manejo","Registre eventos específicos de manejo.","irAba('animais')")}
       ${mod("🗂","Histórico por Animal","Veja tudo que foi feito no animal, com datas.","irAba('animais')")}
     </div>
