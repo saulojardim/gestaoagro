@@ -118,6 +118,7 @@
   .chip-lote{background:var(--verde-lite);color:var(--verde-esc);}
   .chip-f{background:#fbe9ef;color:#a13a63;} .chip-m{background:#e6eef6;color:#2f6fa8;}
   .chip-off{background:#eee;color:#777;} .chip-marca{background:#fff4d6;color:#8a6a12;}
+  .chip-id{background:#eef2ef;color:#5a6b5e;}
   .voltar{background:none;color:var(--verde-esc);font-weight:600;font-size:15px;padding:0;margin:2px 0 12px;}
   .h3{margin:18px 4px 10px;font-size:15px;color:var(--muted);font-weight:700;}
   .evt{border-left:3px solid var(--verde);padding:2px 0 12px 12px;margin-left:4px;}
@@ -194,6 +195,11 @@ function get(s,id){return new Promise(ok=>{const r=tx(s).get(id);r.onsuccess=()=
 function put(s,o){return new Promise(ok=>{const r=tx(s,"readwrite").put(o);r.onsuccess=()=>ok(o);});}
 function del(s,id){return new Promise(ok=>{const r=tx(s,"readwrite").delete(id);r.onsuccess=()=>ok();});}
 const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random();
+const codAnimal=a=>"#"+String((a&&a.codigo)||0).padStart(3,'0');
+const rotulo=a=>(a&&(a.brinco||a.nome))||codAnimal(a);
+async function proximoCodigo(){const as=await getAll("animais");return as.reduce((m,a)=>Math.max(m,a.codigo||0),0)+1;}
+const numBR=id=>{let v=val(id);if(!v)return null;if(v.includes(','))v=v.replace(/\./g,'').replace(',','.');const n=parseFloat(v);return isNaN(n)?null:n;};
+const moeda=n=>n==null?"—":n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const hoje=()=>new Date().toISOString().slice(0,10);
 const fmt=d=>{if(!d)return"";const[a,m,x]=d.split("-");return`${x}/${m}/${a}`;};
 const esc=s=>(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -356,9 +362,9 @@ async function telaAnimais(){
   const nomeLote=id=>(lotes.find(l=>l.id===id)||{}).nome||"—";
   let html=`<button class="btn" onclick="formNovoAnimal()">+ Novo animal</button>`;
   if(lotes.length===0){html+=`<div class="vazio"><div class="big">🐄</div><b>Crie um lote primeiro</b><div class="meta">Todo animal pertence a um lote.</div></div>`;return void($t.innerHTML=html);}
-  html+=`<input id="busca" placeholder="Buscar por brinco ou nome…" oninput="filtrar()" style="margin-bottom:12px"><div id="lista">`;
+  html+=`<input id="busca" placeholder="Buscar por brinco, nome ou nº…" oninput="filtrar()" style="margin-bottom:12px"><div id="lista">`;
   if(animais.length===0)html+=`<div class="vazio"><div class="big">🐄</div><b>Nenhum animal</b><div class="meta">Cadastre um animal ou registre um nascimento.</div></div>`;
-  else for(const a of animais.sort((x,y)=>x.brinco.localeCompare(y.brinco)))html+=linhaAnimal(a,nomeLote(a.loteAtualId),true);
+  else for(const a of animais.sort((x,y)=>(x.codigo||0)-(y.codigo||0)))html+=linhaAnimal(a,nomeLote(a.loteAtualId),true);
   html+=`</div>`;$t.innerHTML=html;
 }
 function filtrar(){const t=val("busca").toLowerCase();
@@ -366,9 +372,10 @@ function filtrar(){const t=val("busca").toLowerCase();
 function linhaAnimal(a,nomeLote,mostraLote){
   const sx=a.sexo==="F"?`<span class="chip chip-f">♀</span>`:`<span class="chip chip-m">♂</span>`;
   const st=a.status!=="Ativo"?`<span class="chip chip-off">${a.status}</span>`:"";
-  return `<div class="card rt" data-b="${esc((a.brinco+" "+(a.nome||"")).toLowerCase())}" onclick="verAnimal('${a.id}')">
-    <div class="ti">${esc(a.brinco)}${a.nome?` · ${esc(a.nome)}`:""}</div>
-    <div class="meta" style="margin-top:6px">${sx}${st}${mostraLote?`<span class="chip chip-lote">▦ ${esc(nomeLote)}</span>`:""}
+  const idchip=(a.brinco||a.nome)?`<span class="chip chip-id">${codAnimal(a)}</span>`:"";
+  return `<div class="card rt" data-b="${esc(((a.brinco||"")+" "+(a.nome||"")+" "+codAnimal(a)).toLowerCase())}" onclick="verAnimal('${a.id}')">
+    <div class="ti">${esc(rotulo(a))}${a.brinco&&a.nome?` · ${esc(a.nome)}`:""}</div>
+    <div class="meta" style="margin-top:6px">${sx}${st}${idchip}${mostraLote?`<span class="chip chip-lote">▦ ${esc(nomeLote)}</span>`:""}
       ${a._marcaSigla?`<span class="chip chip-marca">${esc(a._marcaSigla)}</span>`:""}</div></div>`;
 }
 async function verAnimal(id){
@@ -382,19 +389,22 @@ async function verAnimal(id){
   let tl=eventos.length?"":`<div class="meta">Sem eventos ainda.</div>`;
   for(const e of eventos)tl+=`<div class="evt"><div class="tp">${esc(e.tipo)}</div><div class="dt">${fmt(e.data)}</div>${e.detalhes?`<div class="de">${esc(e.detalhes)}</div>`:""}</div>`;
   $t.innerHTML=`<button class="voltar" onclick="voltar()">‹ Voltar</button>
-    <div class="card"><div class="ti" style="font-size:20px">${esc(a.brinco)}${a.nome?` · ${esc(a.nome)}`:""}</div>
+    <div class="card"><div class="ti" style="font-size:20px">${esc(rotulo(a))}${a.brinco&&a.nome?` · ${esc(a.nome)}`:""} <span class="chip chip-id">${codAnimal(a)}</span></div>
       <div class="meta" style="margin-top:6px">
         ${a.sexo==="F"?`<span class="chip chip-f">♀ Fêmea</span>`:`<span class="chip chip-m">♂ Macho</span>`}
         <span class="chip chip-lote">▦ ${esc(nomeLote)}</span>
         ${marca?`<span class="chip chip-marca">${esc(marca.sigla)}</span>`:""}
         ${a.status!=="Ativo"?`<span class="chip chip-off">${a.status}</span>`:""}</div>
       <div class="meta" style="margin-top:8px">
+        ${a.nascidoNaPropriedade?`Origem: nascido na propriedade<br>`:(a.nascidoNaPropriedade===false?`Origem: comprado${a.pesoCompraKg?` — ${a.pesoCompraKg} kg vivo`:""}<br>`:"")}
         ${a.dataNascimento?`Nascimento: ${fmt(a.dataNascimento)}<br>`:""}
-        ${mae?`Mãe: <b onclick="verAnimal('${mae.id}')" style="color:var(--verde);cursor:pointer">${esc(mae.brinco)}</b><br>`:""}
-        ${filhos.length?`Filhos: ${filhos.length}`:""}</div></div>
+        ${mae?`Mãe: <b onclick="verAnimal('${mae.id}')" style="color:var(--verde);cursor:pointer">${esc(rotulo(mae))}</b><br>`:""}
+        ${filhos.length?`Filhos: ${filhos.length}`:""}</div>
+      ${a.saida?blocoSaida(a.saida):""}</div>
     <div class="lado"><button class="btn" onclick="formEvento('${id}','Vacinação')">💉 Vacinar</button>
       <button class="btn btn-sec" onclick="formMover('${id}')">↷ Mover lote</button></div>
     <button class="btn btn-sec" onclick="formEvento('${id}')">+ Registrar evento de manejo</button>
+    ${a.status==="Ativo"?`<button class="btn btn-perigo" onclick="formSaida('${id}')">↩ Registrar saída (morte/venda)</button>`:""}
     <div class="h3">Histórico</div>${tl}
     <button class="btn-fant" onclick="apagarAnimal('${id}')">Apagar animal</button>`;
 }
@@ -439,6 +449,7 @@ $ov.onclick=e=>{if(e.target===$ov)fechar();};
 function menuAdicionar(){abrir(`<h2>Adicionar</h2>
   <div class="sheet-item rt" onclick="fechar();formNovoAnimal()"><span class="si">🐄</span>Novo animal</div>
   <div class="sheet-item rt" onclick="fechar();formNovoAnimal(null,true)"><span class="si">🍼</span>Registrar nascimento</div>
+  <div class="sheet-item rt" onclick="fechar();formSaida()"><span class="si">↩</span>Saída de animal (morte/venda)</div>
   <div class="sheet-item rt" onclick="fechar();formNovoLote()"><span class="si">▤</span>Novo lote</div>
   <div class="sheet-item rt" onclick="fechar();formNovaPropriedade()"><span class="si">🏡</span>Nova propriedade</div>
   <button class="btn btn-sec" style="margin-top:14px" onclick="fechar()">Cancelar</button>`);}
@@ -471,29 +482,118 @@ async function formNovoAnimal(loteFixo,nascimento){
   const optLotes=lotes.map(l=>{const p=propriedades.find(x=>x.id===l.propriedadeId);
     return`<option value="${l.id}" ${l.id===loteFixo?"selected":""}>${esc(l.nome)}${p?` — ${esc(p.nome)}`:""}</option>`;}).join("");
   const femeas=animais.filter(a=>a.sexo==="F");
-  const optMae=`<option value="">— ${nascimento?"selecione a mãe":"nenhuma / comprado"} —</option>`+
-    femeas.map(m=>`<option value="${m.id}">${esc(m.brinco)}${m.nome?` · ${esc(m.nome)}`:""}</option>`).join("");
+  const optMae=`<option value="">— nenhuma —</option>`+
+    femeas.map(m=>`<option value="${m.id}">${esc(rotulo(m))}</option>`).join("");
   const optMarca=`<option value="">— sem marca —</option>`+
     marcas.map(m=>`<option value="${m.id}">${esc(m.sigla)}${m.nome?` · ${esc(m.nome)}`:""}</option>`).join("");
+  // no fluxo de nascimento, já é nascido na propriedade (sem toggle)
+  const toggle=nascimento?"":`
+    <label>Nasceu na propriedade?</label>
+    <select id="a_nasceu" onchange="toggleOrigem()">
+      <option value="sim">Sim — nasceu aqui</option>
+      <option value="nao" selected>Não — comprado</option>
+    </select>`;
   abrir(`<h2>${nascimento?"Registrar nascimento":"Novo animal"}</h2>
-    <label>Brinco / identificação *</label><input id="a_brinco" placeholder="Ex: 1234">
+    <label>Brinco / identificação</label><input id="a_brinco" placeholder="Opcional">
     <label>Nome (opcional)</label><input id="a_nome">
     <label>Sexo *</label><select id="a_sexo"><option value="F">Fêmea</option><option value="M">Macho</option></select>
-    <label>Data de nascimento</label><input id="a_nasc" type="date" value="${hoje()}">
-    <label>Mãe ${nascimento?"*":"(se nasceu na propriedade)"}</label><select id="a_mae">${optMae}</select>
+    ${toggle}
+    <div id="grp_nasc" style="display:${nascimento?"block":"none"}">
+      <label>Data de nascimento</label><input id="a_nasc" type="date" value="${hoje()}">
+      <label>Mãe ${nascimento?"*":"(opcional)"}</label><select id="a_mae">${optMae}</select>
+    </div>
+    <div id="grp_compra" style="display:${nascimento?"none":"block"}">
+      <label>Peso de compra (kg vivo)</label><input id="a_pesocompra" inputmode="decimal" placeholder="Ex: 180">
+    </div>
     <label>Marca / dono</label><select id="a_marca">${optMarca}</select>
     <label>Lote *</label><select id="a_lote">${optLotes}</select>
     <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
       <button class="btn" onclick="salvarAnimal(${!!nascimento})">Salvar</button></div>`);}
+function toggleOrigem(){
+  const nasceu=(document.getElementById("a_nasceu")||{}).value==="sim";
+  document.getElementById("grp_nasc").style.display=nasceu?"block":"none";
+  document.getElementById("grp_compra").style.display=nasceu?"none":"block";
+}
 async function salvarAnimal(nascimento){
-  const brinco=val("a_brinco");if(!brinco)return alert("Informe o brinco.");
-  const maeId=val("a_mae")||null;
+  const nasceu = nascimento || ((document.getElementById("a_nasceu")||{}).value==="sim");
+  const maeId = nasceu ? (val("a_mae")||null) : null;
   if(nascimento&&!maeId)return alert("Selecione a mãe do bezerro.");
-  const a={id:uid(),brinco,nome:val("a_nome"),sexo:val("a_sexo"),dataNascimento:val("a_nasc"),
+  const a={id:uid(),codigo:await proximoCodigo(),
+    brinco:val("a_brinco"),nome:val("a_nome"),sexo:val("a_sexo"),
+    nascidoNaPropriedade:!!nasceu,
+    dataNascimento: nasceu ? val("a_nasc") : "",
+    pesoCompraKg: nasceu ? null : numBR("a_pesocompra"),
     maeId,marcaId:val("a_marca")||null,loteAtualId:val("a_lote"),status:"Ativo",criadoEm:Date.now()};
   await put("animais",a);
-  if(maeId){const m=await get("animais",maeId);await registrarEvento(a.id,"Nascimento",a.dataNascimento,`Filho(a) de ${m?m.brinco:"—"}`);}
+  if(maeId){const m=await get("animais",maeId);await registrarEvento(a.id,"Nascimento",a.dataNascimento,`Filho(a) de ${m?rotulo(m):"—"}`);}
   fechar();render();
+}
+
+/* ---------- SAÍDA DE ANIMAL (morte / venda) ---------- */
+function blocoSaida(s){
+  if(s.tipo==="Morte")
+    return `<div class="card" style="border-left:4px solid var(--perigo);margin-top:10px">
+      <b>Saída: Morte</b><div class="meta" style="margin-top:2px">${fmt(s.data)}${s.causa?` — Causa: ${esc(s.causa)}`:""}</div></div>`;
+  const arr=s.pesoLiquido!=null?(s.pesoLiquido/15):null;
+  return `<div class="card" style="border-left:4px solid var(--verde);margin-top:10px">
+    <b>Saída: Venda</b>
+    <div class="meta" style="margin-top:2px">${fmt(s.data)}</div>
+    <div class="meta" style="margin-top:4px">
+      Preço da @: ${s.precoArroba!=null?moeda(s.precoArroba):"—"}<br>
+      Peso bruto: ${s.pesoBruto!=null?s.pesoBruto+" kg":"—"} · Peso líquido: ${s.pesoLiquido!=null?s.pesoLiquido+" kg":"—"}${arr!=null?` (${arr.toFixed(1)} @)`:""}<br>
+      ${s.condicoes?`Condições: ${esc(s.condicoes)}<br>`:""}
+      ${s.valor!=null?`<b>Valor estimado: ${moeda(s.valor)}</b>`:""}
+    </div></div>`;
+}
+async function formSaida(animalId){
+  let seletor="";
+  if(!animalId){
+    const {lotes,animais}=await tudo();
+    const ativos=animais.filter(a=>a.status==="Ativo").sort((x,y)=>(x.codigo||0)-(y.codigo||0));
+    if(!ativos.length){fechar();return alert("Não há animais ativos para dar saída.");}
+    const nomeLote=id=>(lotes.find(l=>l.id===id)||{}).nome||"—";
+    seletor=`<label>Animal *</label><select id="s_animal">`+
+      ativos.map(a=>`<option value="${a.id}">${esc(rotulo(a))} ${codAnimal(a)} — ${esc(nomeLote(a.loteAtualId))}</option>`).join("")+`</select>`;
+  }
+  abrir(`<h2>Saída de animal</h2>
+    ${seletor}
+    <label>Motivo *</label>
+    <select id="s_tipo" onchange="toggleSaida()"><option value="Venda">Venda</option><option value="Morte">Morte</option></select>
+    <label>Data</label><input id="s_data" type="date" value="${hoje()}">
+    <div id="grp_morte" style="display:none">
+      <label>Causa da morte</label><input id="s_causa" placeholder="Ex: doença, acidente, predador…">
+    </div>
+    <div id="grp_venda">
+      <label>Preço da arroba (@) — R$</label><input id="s_preco" inputmode="decimal" placeholder="Ex: 320">
+      <label>Peso de venda bruto (kg)</label><input id="s_bruto" inputmode="decimal" placeholder="Ex: 480">
+      <label>Peso de venda líquido (kg)</label><input id="s_liq" inputmode="decimal" placeholder="Ex: 255">
+      <label>Condições (tara, desconto por @, etc.)</label><textarea id="s_cond" placeholder="Texto livre"></textarea>
+    </div>
+    <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+      <button class="btn btn-perigo" onclick="salvarSaida(${animalId?`'${animalId}'`:"null"})">Registrar saída</button></div>`);}
+function toggleSaida(){
+  const venda=document.getElementById("s_tipo").value==="Venda";
+  document.getElementById("grp_venda").style.display=venda?"block":"none";
+  document.getElementById("grp_morte").style.display=venda?"none":"block";
+}
+async function salvarSaida(animalId){
+  const id = animalId || (document.getElementById("s_animal")||{}).value;
+  if(!id)return alert("Selecione o animal.");
+  const tipo=val("s_tipo"), data=val("s_data");
+  let saida={tipo,data}, det="";
+  if(tipo==="Morte"){
+    saida.causa=val("s_causa");
+    det=`Causa: ${saida.causa||"não informada"}`;
+  }else{
+    const preco=numBR("s_preco"), bruto=numBR("s_bruto"), liq=numBR("s_liq"), cond=val("s_cond");
+    const valor=(preco!=null&&liq!=null)?preco*(liq/15):null;
+    saida={...saida,precoArroba:preco,pesoBruto:bruto,pesoLiquido:liq,condicoes:cond,valor};
+    det=`@ ${preco!=null?moeda(preco):"—"} · bruto ${bruto??"—"}kg · líq ${liq??"—"}kg`+
+        (valor!=null?` · estimado ${moeda(valor)}`:"")+(cond?` · ${cond}`:"");
+  }
+  await registrarEvento(id,tipo,data,det);   // já muda o status para Morto/Vendido
+  const a=await get("animais",id); a.saida=saida; await put("animais",a);
+  fechar(); irAba('animais');
 }
 
 async function formVacinarLote(loteId){const l=await get("lotes",loteId);
