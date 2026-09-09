@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rebanho">
+<meta name="theme-color" content="#1F5130">
+<title>Gestão do Rebanho</title>
+<style>
+  :root{
+    --verde:#2E8B4F;         /* verde de acento (ícones, títulos de seção) */
+    --verde-esc:#1F5130;     /* verde escuro (hero, texto forte) */
+    --verde-med:#3AA05C;
+    --verde-lite:#E8F3EA;    /* fundo claro dos módulos/ícones */
+    --verde-lite2:#DCEEDF;
+    --fundo:#F6F8F6;
+    --card:#FFFFFF;
+    --texto:#1A1D1A;
+    --muted:#7C837C;
+    --linha:#E6EAE6;
+    --perigo:#B4432E;
+    --sombra:0 1px 3px rgba(20,40,25,.06),0 1px 2px rgba(20,40,25,.04);
+    --radius:16px;
+    --nav-h:66px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--fundo);color:var(--texto);font-size:16px;line-height:1.4;
+    padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- Topo ---------- */
+  .topo{
+    background:#fff;padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
+    display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20;border-bottom:1px solid var(--linha);
+  }
+  .topo .icobtn{width:40px;height:40px;border-radius:12px;background:none;color:var(--verde-esc);font-size:22px;
+    display:flex;align-items:center;justify-content:center;}
+  .topo .tit{flex:1;text-align:center;}
+  .topo .tit h1{margin:0;font-size:19px;font-weight:800;color:var(--verde-esc);}
+  .topo .tit .sub{font-size:12px;color:var(--muted);margin-top:1px;}
+  .topo .mais{width:44px;height:44px;border-radius:50%;background:var(--verde);color:#fff;font-size:26px;
+    box-shadow:var(--sombra);display:flex;align-items:center;justify-content:center;}
+  .topo .mais:active{background:var(--verde-med);}
+
+  main{max-width:660px;margin:0 auto;padding:16px 14px 8px;}
+
+  /* ---------- Hero ---------- */
+  .hero{
+    background:linear-gradient(135deg,#245e38 0%,#1c4a2c 55%,#173f26 100%);
+    border-radius:20px;padding:20px;color:#fff;position:relative;overflow:hidden;box-shadow:var(--sombra);
+    margin-bottom:22px;
+  }
+  .hero .cattle{position:absolute;right:-10px;bottom:-14px;opacity:.16;width:180px;height:auto;}
+  .hero .cabeca{display:flex;align-items:center;gap:12px;}
+  .hero .tile{width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,.14);
+    display:flex;align-items:center;justify-content:center;}
+  .hero .rot{font-size:15px;font-weight:600;opacity:.95;}
+  .hero .num{font-size:52px;font-weight:800;line-height:1;margin:6px 0 2px;}
+  .hero .peq{font-size:14px;opacity:.85;}
+  .hero .linha{display:flex;align-items:center;gap:14px;margin-top:14px;border-top:1px solid rgba(255,255,255,.18);padding-top:12px;}
+  .hero .frase{font-size:12.5px;opacity:.9;line-height:1.5;}
+  .hero .assinatura{position:absolute;right:18px;top:16px;font-style:italic;font-size:13px;opacity:.85;text-align:right;max-width:120px;}
+
+  /* ---------- Seções ---------- */
+  .sechead{display:flex;align-items:center;gap:8px;margin:0 4px 12px;}
+  .sechead .sic{color:var(--verde);font-size:20px;}
+  .sechead h2{margin:0;font-size:19px;font-weight:800;color:var(--verde-esc);flex:1;}
+  .sechead a{color:var(--verde);font-size:14px;font-weight:600;text-decoration:none;}
+
+  /* ---------- Cartão de propriedade ---------- */
+  .prop{background:#fff;border-radius:var(--radius);box-shadow:var(--sombra);padding:12px;margin-bottom:12px;cursor:pointer;}
+  .prop:active{background:#fafbfa;}
+  .prop .top{display:flex;gap:12px;align-items:center;}
+  .prop .thumb{width:80px;height:64px;border-radius:12px;flex-shrink:0;
+    background:linear-gradient(160deg,#cfe6d4,#a9d3b3);display:flex;align-items:center;justify-content:center;color:#2c6b41;}
+  .prop .nome{font-size:18px;font-weight:700;color:var(--verde-esc);}
+  .prop .loc{font-size:13px;color:var(--muted);margin-top:2px;}
+  .prop .chev{color:var(--muted);font-size:20px;}
+  .prop .stats{display:flex;align-items:stretch;gap:12px;background:#f4f8f4;border-radius:12px;padding:10px 12px;margin-top:10px;}
+  .prop .stats .tot{padding-right:12px;border-right:1px solid var(--linha);}
+  .prop .stats .lbl{font-size:11px;color:var(--muted);}
+  .prop .stats .big{font-size:24px;font-weight:800;color:var(--verde-esc);}
+  .prop .marcas{display:flex;gap:16px;flex:1;}
+  .prop .marcas .m{text-align:center;}
+  .prop .marcas .ms{font-size:11px;color:var(--muted);font-weight:700;}
+  .prop .marcas .mn{font-size:18px;font-weight:800;color:var(--verde-esc);}
+
+  /* ---------- Módulos ---------- */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .mod{background:var(--verde-lite);border-radius:var(--radius);padding:14px;cursor:pointer;position:relative;}
+  .mod:active{background:var(--verde-lite2);}
+  .mod .mic{width:44px;height:44px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;
+    color:var(--verde);font-size:22px;margin-bottom:10px;box-shadow:var(--sombra);}
+  .mod .mt{font-weight:700;color:var(--verde-esc);font-size:15px;}
+  .mod .md{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.35;}
+  .mod .chev{position:absolute;right:12px;top:14px;color:var(--verde);opacity:.6;}
+
+  .faixa{background:#eef4ef;border-radius:var(--radius);padding:14px 16px;margin-top:18px;display:flex;align-items:center;gap:12px;}
+  .faixa .fic{color:var(--verde);font-size:22px;}
+  .faixa .ft{font-size:13.5px;color:#3a4a3d;line-height:1.4;}
+
+  /* ---------- Listas genéricas ---------- */
+  .card{background:#fff;border-radius:var(--radius);box-shadow:var(--sombra);padding:14px;margin-bottom:10px;}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .rt{cursor:pointer;} .rt:active{background:#fafbfa;}
+  .ti{font-weight:600;font-size:16px;} .meta{color:var(--muted);font-size:13px;margin-top:2px;}
+  .badge{background:var(--verde);color:#fff;font-size:13px;font-weight:600;border-radius:20px;padding:3px 11px;white-space:nowrap;}
+  .chip{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:20px;margin-right:4px;}
+  .chip-lote{background:var(--verde-lite);color:var(--verde-esc);}
+  .chip-f{background:#fbe9ef;color:#a13a63;} .chip-m{background:#e6eef6;color:#2f6fa8;}
+  .chip-off{background:#eee;color:#777;} .chip-marca{background:#fff4d6;color:#8a6a12;}
+  .voltar{background:none;color:var(--verde-esc);font-weight:600;font-size:15px;padding:0;margin:2px 0 12px;}
+  .h3{margin:18px 4px 10px;font-size:15px;color:var(--muted);font-weight:700;}
+  .evt{border-left:3px solid var(--verde);padding:2px 0 12px 12px;margin-left:4px;}
+  .evt:last-child{padding-bottom:0;}
+  .evt .tp{font-weight:600;font-size:15px;} .evt .dt{color:var(--muted);font-size:12px;} .evt .de{font-size:14px;margin-top:2px;}
+  .vazio{text-align:center;color:var(--muted);padding:36px 20px;} .vazio .big{font-size:34px;margin-bottom:8px;}
+
+  /* ---------- Botões ---------- */
+  button{font-family:inherit;font-size:16px;cursor:pointer;border:none;}
+  .btn{display:block;width:100%;background:var(--verde);color:#fff;padding:14px;border-radius:14px;font-weight:600;margin-bottom:10px;box-shadow:var(--sombra);}
+  .btn:active{background:var(--verde-med);}
+  .btn-sec{background:#fff;color:var(--verde);border:1.5px solid var(--verde);box-shadow:none;}
+  .btn-perigo{background:#fff;color:var(--perigo);border:1.5px solid var(--perigo);box-shadow:none;}
+  .btn-fant{background:none;color:var(--muted);padding:10px;box-shadow:none;}
+  .lado{display:flex;gap:8px;} .lado .btn{margin-bottom:0;}
+
+  /* ---------- Modal ---------- */
+  .ov{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:none;align-items:flex-end;justify-content:center;}
+  .ov.on{display:flex;}
+  .modal{background:#fff;width:100%;max-width:660px;border-radius:20px 20px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto;animation:sobe .18s ease;}
+  @keyframes sobe{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+  .modal h2{margin:0 0 12px;font-size:18px;color:var(--verde-esc);}
+  label{display:block;font-size:13px;color:var(--muted);margin:12px 0 5px;font-weight:600;}
+  input,select,textarea{width:100%;padding:12px;border:1.5px solid var(--linha);border-radius:10px;font-size:16px;font-family:inherit;background:#fff;color:var(--texto);}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--verde);}
+  textarea{resize:vertical;min-height:60px;}
+  .sheet-item{padding:15px 4px;border-bottom:1px solid var(--linha);font-size:16px;display:flex;gap:12px;align-items:center;}
+  .sheet-item:last-child{border-bottom:none;} .sheet-item .si{color:var(--verde);font-size:20px;width:24px;text-align:center;}
+
+  /* ---------- Nav ---------- */
+  nav{position:fixed;bottom:0;left:0;right:0;height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);
+    background:#fff;border-top:1px solid var(--linha);display:flex;z-index:30;}
+  nav button{flex:1;background:none;color:var(--muted);font-size:11px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;}
+  nav button .ic{font-size:21px;line-height:1;} nav button.ativo{color:var(--verde);}
+</style>
+</head>
+<body>
+
+<div class="topo">
+  <button class="icobtn" onclick="menuConfig()">☰</button>
+  <div class="tit"><h1>Gestão do Rebanho</h1><div class="sub">Pecuária organizada gera resultados</div></div>
+  <button class="mais" onclick="menuAdicionar()">+</button>
+</div>
+
+<main id="tela"></main>
+
+<nav>
+  <button data-aba="painel" class="ativo"><span class="ic">⌂</span>Painel</button>
+  <button data-aba="lotes"><span class="ic">▤</span>Lotes</button>
+  <button data-aba="animais"><span class="ic">🐄</span>Animais</button>
+  <button data-aba="perfil"><span class="ic">◔</span>Perfil</button>
+</nav>
+
+<div class="ov" id="ov"><div class="modal" id="md"></div></div>
+
+<script>
+/* ======================= BANCO (IndexedDB, offline) ======================= */
+const DB="rebanho_v2"; let db;
+function abrirDB(){return new Promise((ok,er)=>{const r=indexedDB.open(DB,1);
+  r.onupgradeneeded=e=>{const d=e.target.result;
+    d.createObjectStore("propriedades",{keyPath:"id"});
+    d.createObjectStore("marcas",{keyPath:"id"});
+    d.createObjectStore("lotes",{keyPath:"id"});
+    d.createObjectStore("animais",{keyPath:"id"});
+    d.createObjectStore("eventos",{keyPath:"id"});
+  };
+  r.onsuccess=e=>{db=e.target.result;ok();}; r.onerror=er;});}
+function tx(s,m="readonly"){return db.transaction(s,m).objectStore(s);}
+function getAll(s){return new Promise(ok=>{const r=tx(s).getAll();r.onsuccess=()=>ok(r.result);});}
+function get(s,id){return new Promise(ok=>{const r=tx(s).get(id);r.onsuccess=()=>ok(r.result);});}
+function put(s,o){return new Promise(ok=>{const r=tx(s,"readwrite").put(o);r.onsuccess=()=>ok(o);});}
+function del(s,id){return new Promise(ok=>{const r=tx(s,"readwrite").delete(id);r.onsuccess=()=>ok();});}
+const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random();
+const hoje=()=>new Date().toISOString().slice(0,10);
+const fmt=d=>{if(!d)return"";const[a,m,x]=d.split("-");return`${x}/${m}/${a}`;};
+const esc=s=>(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const val=id=>(document.getElementById(id).value||"").trim();
+const TIPOS=["Vacinação","Nascimento","Movimentação","Pesagem","Tratamento","Reprodução","Morte","Venda","Outro"];
+const COW=`<svg class="cattle" viewBox="0 0 640 512" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M96 224c0-53 43-96 96-96h256c53 0 96 43 96 96v32c0 71-57 128-128 128H224c-71 0-128-57-128-128v-32zm40-140c-8-20-30-52-70-52-6 0-10 6-8 12 8 26 30 52 60 60 9 3 21-11 18-20zm368 0c-3 9 9 23 18 20 30-8 52-34 60-60 2-6-2-12-8-12-40 0-62 32-70 52zM240 300a20 20 0 100-40 20 20 0 000 40zm160 0a20 20 0 100-40 20 20 0 000 40z"/></svg>`;
+
+/* Carrega tudo de uma vez e monta em memória */
+async function tudo(){
+  const [propriedades,marcas,lotes,animais,eventos]=await Promise.all(
+    ["propriedades","marcas","lotes","animais","eventos"].map(getAll));
+  return {propriedades,marcas,lotes,animais,eventos};
+}
+const propDoAnimal=(a,lotes)=>{const l=lotes.find(x=>x.id===a.loteAtualId);return l?l.propriedadeId:null;};
+
+/* ======================= AÇÕES ======================= */
+async function registrarEvento(animalId,tipo,data,detalhes){
+  const a=await get("animais",animalId);
+  await put("eventos",{id:uid(),animalId,tipo,data:data||hoje(),detalhes:detalhes||"",criadoEm:Date.now()});
+  if(a&&(tipo==="Morte"||tipo==="Venda")){a.status=tipo==="Morte"?"Morto":"Vendido";await put("animais",a);}
+}
+async function moverAnimal(id,novoLote){
+  const a=await get("animais",id),de=await get("lotes",a.loteAtualId),para=await get("lotes",novoLote);
+  a.loteAtualId=novoLote;await put("animais",a);
+  await registrarEvento(id,"Movimentação",hoje(),`De "${de?de.nome:"—"}" para "${para?para.nome:"—"}"`);
+}
+async function vacinarLote(loteId,vac,data){
+  const as=(await getAll("animais")).filter(a=>a.loteAtualId===loteId&&a.status==="Ativo");
+  for(const a of as)await registrarEvento(a.id,"Vacinação",data,vac);
+  return as.length;
+}
+
+/* ======================= NAV ======================= */
+const $t=document.getElementById("tela"); let aba="painel";
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  aba=b.dataset.aba;
+  document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("ativo",x===b));
+  render();
+});
+function irAba(a){aba=a;document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("ativo",x.dataset.aba===a));render();}
+function render(){({painel:telaPainel,lotes:telaLotes,animais:telaAnimais,perfil:telaPerfil}[aba])();}
+function voltar(){render();}
+
+/* ======================= PAINEL (dashboard) ======================= */
+async function telaPainel(){
+  const {propriedades,marcas,lotes,animais}=await tudo();
+  const ativos=animais.filter(a=>a.status==="Ativo");
+  const total=ativos.length;
+
+  const contaProp=pid=>ativos.filter(a=>propDoAnimal(a,lotes)===pid);
+  const contaMarca=(arr,mid)=>arr.filter(a=>a.marcaId===mid).length;
+
+  let props="";
+  if(propriedades.length===0){
+    props=`<div class="card vazio"><div class="big">🏡</div><b>Nenhuma propriedade</b>
+      <div class="meta">Toque no + e cadastre sua primeira propriedade.</div></div>`;
+  }else{
+    for(const p of propriedades){
+      const arr=contaProp(p.id);
+      let cols=marcas.map(m=>`<div class="m"><div class="ms">${esc(m.sigla)}</div><div class="mn">${contaMarca(arr,m.id)}</div></div>`).join("");
+      props+=`<div class="prop" onclick="verPropriedade('${p.id}')">
+        <div class="top">
+          <div class="thumb">🌳</div>
+          <div style="flex:1"><div class="nome">${esc(p.nome)}</div>
+            <div class="loc">📍 ${esc(p.local||"")}</div></div>
+          <div class="chev">›</div>
+        </div>
+        <div class="stats">
+          <div class="tot"><div class="lbl">Total de animais</div><div class="big">${arr.length}</div></div>
+          ${marcas.length?`<div class="marcas">${cols}</div>`:""}
+        </div></div>`;
+    }
+  }
+
+  $t.innerHTML=`
+    <div class="hero">${COW}
+      <div class="assinatura">Pecuária que evolui com você</div>
+      <div class="cabeca"><div class="tile">🐄</div><div class="rot">Total do Rebanho</div></div>
+      <div class="num">${total}</div><div class="peq">animais cadastrados</div>
+      <div class="linha"><span style="font-size:20px">📊</span>
+        <div class="frase">Mais controle<br>Mais produtividade<br>Um futuro maior</div></div>
+    </div>
+
+    <div class="sechead"><span class="sic">🏠</span><h2>Propriedades cadastradas</h2>
+      <a onclick="irAba('lotes')">Ver todas ›</a></div>
+    ${props}
+
+    <div class="sechead" style="margin-top:22px"><span class="sic">▦</span><h2>Módulos do sistema</h2></div>
+    <div class="grid">
+      ${mod("▤","Lotes","Incluir ou mover gado entre lotes.","irAba('lotes')")}
+      ${mod("🐄","Nascimento de Bezerro","Registro de bezerros com vínculo da mãe.","formNovoAnimal(null,true)")}
+      ${mod("☑","Eventos de Manejo","Registre eventos específicos de manejo.","irAba('animais')")}
+      ${mod("🗂","Histórico por Animal","Veja tudo que foi feito no animal, com datas.","irAba('animais')")}
+    </div>
+
+    <div class="faixa"><span class="fic">📈</span>
+      <div class="ft"><b>Informação no campo,</b> decisões mais assertivas.</div></div>`;
+}
+const mod=(ic,t,d,fn)=>`<div class="mod" onclick="${fn}"><div class="mic">${ic}</div>
+  <div class="mt">${t}</div><div class="md">${d}</div><div class="chev">›</div></div>`;
+
+async function verPropriedade(pid){
+  const p=await get("propriedades",pid);
+  const {lotes,animais}=await tudo();
+  const meusLotes=lotes.filter(l=>l.propriedadeId===pid);
+  const conta=lid=>animais.filter(a=>a.loteAtualId===lid&&a.status==="Ativo").length;
+  let lst=meusLotes.length?"":`<div class="meta" style="padding:8px 4px">Nenhum lote nesta propriedade.</div>`;
+  for(const l of meusLotes)lst+=`<div class="card row rt" onclick="verLote('${l.id}')">
+    <div><div class="ti">${esc(l.nome)}</div>${l.descricao?`<div class="meta">${esc(l.descricao)}</div>`:""}</div>
+    <span class="badge">${conta(l.id)} 🐄</span></div>`;
+  $t.innerHTML=`<button class="voltar" onclick="irAba('painel')">‹ Painel</button>
+    <div class="card"><div class="ti" style="font-size:20px">${esc(p.nome)}</div>
+      <div class="meta">📍 ${esc(p.local||"")}</div></div>
+    <button class="btn btn-sec" onclick="formNovoLote('${pid}')">+ Novo lote nesta propriedade</button>
+    <div class="h3">Lotes</div>${lst}
+    <button class="btn-fant" onclick="apagarPropriedade('${pid}')">Apagar propriedade</button>`;
+}
+
+/* ======================= LOTES ======================= */
+async function telaLotes(){
+  const {propriedades,lotes,animais}=await tudo();
+  const conta=id=>animais.filter(a=>a.loteAtualId===id&&a.status==="Ativo").length;
+  let html=`<button class="btn" onclick="formNovoLote()">+ Novo lote</button>`;
+  if(lotes.length===0){html+=`<div class="vazio"><div class="big">▤</div><b>Nenhum lote</b><div class="meta">Crie um lote para organizar o rebanho.</div></div>`;}
+  else{
+    for(const p of propriedades){
+      const ls=lotes.filter(l=>l.propriedadeId===p.id);if(!ls.length)continue;
+      html+=`<div class="h3">${esc(p.nome)}</div>`;
+      for(const l of ls)html+=`<div class="card row rt" onclick="verLote('${l.id}')">
+        <div><div class="ti">${esc(l.nome)}</div>${l.descricao?`<div class="meta">${esc(l.descricao)}</div>`:""}</div>
+        <span class="badge">${conta(l.id)} 🐄</span></div>`;
+    }
+    const orfaos=lotes.filter(l=>!propriedades.find(p=>p.id===l.propriedadeId));
+    if(orfaos.length){html+=`<div class="h3">Sem propriedade</div>`;
+      for(const l of orfaos)html+=`<div class="card row rt" onclick="verLote('${l.id}')">
+        <div class="ti">${esc(l.nome)}</div><span class="badge">${conta(l.id)} 🐄</span></div>`;}
+  }
+  $t.innerHTML=html;
+}
+async function verLote(id){
+  const l=await get("lotes",id),p=l.propriedadeId?await get("propriedades",l.propriedadeId):null;
+  const animais=(await getAll("animais")).filter(a=>a.loteAtualId===id&&a.status==="Ativo");
+  const nomeLote=l.nome;
+  let lst=animais.length?"":`<div class="meta" style="padding:8px 4px">Nenhum animal ativo neste lote.</div>`;
+  for(const a of animais.sort((x,y)=>x.brinco.localeCompare(y.brinco)))lst+=linhaAnimal(a,nomeLote,false);
+  $t.innerHTML=`<button class="voltar" onclick="voltar()">‹ Voltar</button>
+    <div class="card"><div class="ti" style="font-size:19px">${esc(l.nome)}</div>
+      ${p?`<div class="meta">${esc(p.nome)}</div>`:""}
+      ${l.descricao?`<div class="meta">${esc(l.descricao)}</div>`:""}
+      <div class="meta">${animais.length} animais ativos</div></div>
+    <button class="btn" onclick="formVacinarLote('${id}')">💉 Vacinar lote inteiro</button>
+    <div class="lado"><button class="btn btn-sec" onclick="formNovoAnimal('${id}')">+ Animal</button>
+      <button class="btn btn-perigo" onclick="apagarLote('${id}')">Apagar</button></div>
+    <div class="h3">Animais</div>${lst}`;
+}
+
+/* ======================= ANIMAIS ======================= */
+async function telaAnimais(){
+  const {propriedades,lotes,animais}=await tudo();
+  const nomeLote=id=>(lotes.find(l=>l.id===id)||{}).nome||"—";
+  let html=`<button class="btn" onclick="formNovoAnimal()">+ Novo animal</button>`;
+  if(lotes.length===0){html+=`<div class="vazio"><div class="big">🐄</div><b>Crie um lote primeiro</b><div class="meta">Todo animal pertence a um lote.</div></div>`;return void($t.innerHTML=html);}
+  html+=`<input id="busca" placeholder="Buscar por brinco ou nome…" oninput="filtrar()" style="margin-bottom:12px"><div id="lista">`;
+  if(animais.length===0)html+=`<div class="vazio"><div class="big">🐄</div><b>Nenhum animal</b><div class="meta">Cadastre um animal ou registre um nascimento.</div></div>`;
+  else for(const a of animais.sort((x,y)=>x.brinco.localeCompare(y.brinco)))html+=linhaAnimal(a,nomeLote(a.loteAtualId),true);
+  html+=`</div>`;$t.innerHTML=html;
+}
+function filtrar(){const t=val("busca").toLowerCase();
+  document.querySelectorAll("#lista .card").forEach(c=>c.style.display=c.dataset.b.includes(t)?"":"none");}
+function linhaAnimal(a,nomeLote,mostraLote){
+  const sx=a.sexo==="F"?`<span class="chip chip-f">♀</span>`:`<span class="chip chip-m">♂</span>`;
+  const st=a.status!=="Ativo"?`<span class="chip chip-off">${a.status}</span>`:"";
+  return `<div class="card rt" data-b="${esc((a.brinco+" "+(a.nome||"")).toLowerCase())}" onclick="verAnimal('${a.id}')">
+    <div class="ti">${esc(a.brinco)}${a.nome?` · ${esc(a.nome)}`:""}</div>
+    <div class="meta" style="margin-top:6px">${sx}${st}${mostraLote?`<span class="chip chip-lote">▦ ${esc(nomeLote)}</span>`:""}
+      ${a._marcaSigla?`<span class="chip chip-marca">${esc(a._marcaSigla)}</span>`:""}</div></div>`;
+}
+async function verAnimal(id){
+  const a=await get("animais",id),{lotes,marcas}=await tudo();
+  const nomeLote=(lotes.find(l=>l.id===a.loteAtualId)||{}).nome||"—";
+  const marca=marcas.find(m=>m.id===a.marcaId);
+  const mae=a.maeId?await get("animais",a.maeId):null;
+  const filhos=(await getAll("animais")).filter(f=>f.maeId===id);
+  const eventos=(await getAll("eventos")).filter(e=>e.animalId===id)
+    .sort((x,y)=>y.data.localeCompare(x.data)||y.criadoEm-x.criadoEm);
+  let tl=eventos.length?"":`<div class="meta">Sem eventos ainda.</div>`;
+  for(const e of eventos)tl+=`<div class="evt"><div class="tp">${esc(e.tipo)}</div><div class="dt">${fmt(e.data)}</div>${e.detalhes?`<div class="de">${esc(e.detalhes)}</div>`:""}</div>`;
+  $t.innerHTML=`<button class="voltar" onclick="voltar()">‹ Voltar</button>
+    <div class="card"><div class="ti" style="font-size:20px">${esc(a.brinco)}${a.nome?` · ${esc(a.nome)}`:""}</div>
+      <div class="meta" style="margin-top:6px">
+        ${a.sexo==="F"?`<span class="chip chip-f">♀ Fêmea</span>`:`<span class="chip chip-m">♂ Macho</span>`}
+        <span class="chip chip-lote">▦ ${esc(nomeLote)}</span>
+        ${marca?`<span class="chip chip-marca">${esc(marca.sigla)}</span>`:""}
+        ${a.status!=="Ativo"?`<span class="chip chip-off">${a.status}</span>`:""}</div>
+      <div class="meta" style="margin-top:8px">
+        ${a.dataNascimento?`Nascimento: ${fmt(a.dataNascimento)}<br>`:""}
+        ${mae?`Mãe: <b onclick="verAnimal('${mae.id}')" style="color:var(--verde);cursor:pointer">${esc(mae.brinco)}</b><br>`:""}
+        ${filhos.length?`Filhos: ${filhos.length}`:""}</div></div>
+    <div class="lado"><button class="btn" onclick="formEvento('${id}','Vacinação')">💉 Vacinar</button>
+      <button class="btn btn-sec" onclick="formMover('${id}')">↷ Mover lote</button></div>
+    <button class="btn btn-sec" onclick="formEvento('${id}')">+ Registrar evento de manejo</button>
+    <div class="h3">Histórico</div>${tl}
+    <button class="btn-fant" onclick="apagarAnimal('${id}')">Apagar animal</button>`;
+}
+
+/* ======================= PERFIL / CONFIG ======================= */
+async function telaPerfil(){
+  const {propriedades,marcas,lotes,animais,eventos}=await tudo();
+  $t.innerHTML=`
+    <div class="card"><div class="ti">Resumo</div>
+      <div class="meta" style="margin-top:4px">${propriedades.length} propriedades · ${lotes.length} lotes · ${animais.length} animais · ${eventos.length} eventos</div></div>
+    <div class="sechead"><h2 style="font-size:16px">Cadastros</h2></div>
+    <button class="btn btn-sec" onclick="gerenciarMarcas()">🏷 Marcas / donos (${marcas.length})</button>
+    <button class="btn btn-sec" onclick="formNovaPropriedade()">🏡 Nova propriedade</button>
+    <div class="sechead" style="margin-top:18px"><h2 style="font-size:16px">Backup</h2></div>
+    <div class="card" style="border-left:4px solid var(--verde)">
+      <b>⚠ Faça backup com frequência.</b>
+      <div class="meta" style="margin-top:4px">Os dados ficam só neste aparelho. Exporte e guarde em outro lugar.</div></div>
+    <button class="btn" onclick="exportar()">⬇ Exportar backup (.json)</button>
+    <label class="btn btn-sec" style="text-align:center;cursor:pointer">⬆ Importar backup
+      <input type="file" accept="application/json" onchange="importar(this)" style="display:none"></label>`;
+}
+async function gerenciarMarcas(){
+  const marcas=await getAll("marcas");
+  let lst=marcas.map(m=>`<div class="sheet-item"><span class="si">🏷</span>
+    <div style="flex:1"><b>${esc(m.sigla)}</b> ${m.nome?`· ${esc(m.nome)}`:""}</div>
+    <button class="btn-fant" style="padding:4px;color:var(--perigo)" onclick="del('marcas','${m.id}').then(gerenciarMarcas)">✕</button></div>`).join("")||`<div class="meta">Nenhuma marca ainda.</div>`;
+  abrir(`<h2>Marcas / donos</h2>${lst}
+    <label>Nova marca — sigla *</label><input id="m_sig" placeholder="Ex: SJ">
+    <label>Nome do dono (opcional)</label><input id="m_nome" placeholder="Ex: Sítio São João">
+    <div class="lado" style="margin-top:16px"><button class="btn btn-sec" onclick="fechar()">Fechar</button>
+      <button class="btn" onclick="salvarMarca()">Adicionar</button></div>`);
+}
+async function salvarMarca(){const s=val("m_sig");if(!s)return alert("Informe a sigla.");
+  await put("marcas",{id:uid(),sigla:s,nome:val("m_nome")});gerenciarMarcas();}
+
+/* ======================= FORMULÁRIOS ======================= */
+const $ov=document.getElementById("ov"),$md=document.getElementById("md");
+function abrir(h){$md.innerHTML=h;$ov.classList.add("on");}
+function fechar(){$ov.classList.remove("on");}
+$ov.onclick=e=>{if(e.target===$ov)fechar();};
+
+function menuAdicionar(){abrir(`<h2>Adicionar</h2>
+  <div class="sheet-item rt" onclick="fechar();formNovoAnimal()"><span class="si">🐄</span>Novo animal</div>
+  <div class="sheet-item rt" onclick="fechar();formNovoAnimal(null,true)"><span class="si">🍼</span>Registrar nascimento</div>
+  <div class="sheet-item rt" onclick="fechar();formNovoLote()"><span class="si">▤</span>Novo lote</div>
+  <div class="sheet-item rt" onclick="fechar();formNovaPropriedade()"><span class="si">🏡</span>Nova propriedade</div>
+  <button class="btn btn-sec" style="margin-top:14px" onclick="fechar()">Cancelar</button>`);}
+function menuConfig(){irAba('perfil');}
+
+function formNovaPropriedade(){abrir(`<h2>Nova propriedade</h2>
+  <label>Nome *</label><input id="p_nome" placeholder="Ex: Fazenda Garrafão">
+  <label>Localização</label><input id="p_local" placeholder="Ex: Garrafão - Campos RJ">
+  <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+    <button class="btn" onclick="salvarPropriedade()">Salvar</button></div>`);}
+async function salvarPropriedade(){const n=val("p_nome");if(!n)return alert("Dê um nome.");
+  await put("propriedades",{id:uid(),nome:n,local:val("p_local"),criadoEm:Date.now()});fechar();render();}
+
+async function formNovoLote(propFixa){
+  const props=await getAll("propriedades");
+  if(props.length===0){fechar();return alert("Cadastre uma propriedade primeiro (menu + ).");}
+  const opt=props.map(p=>`<option value="${p.id}" ${p.id===propFixa?"selected":""}>${esc(p.nome)}</option>`).join("");
+  abrir(`<h2>Novo lote</h2>
+    <label>Propriedade *</label><select id="l_prop">${opt}</select>
+    <label>Nome do lote *</label><input id="l_nome" placeholder="Ex: Bezerras 2025">
+    <label>Descrição</label><input id="l_desc" placeholder="Ex: piquete 3, recria">
+    <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+      <button class="btn" onclick="salvarLote()">Salvar</button></div>`);}
+async function salvarLote(){const n=val("l_nome");if(!n)return alert("Dê um nome ao lote.");
+  await put("lotes",{id:uid(),nome:n,descricao:val("l_desc"),propriedadeId:val("l_prop"),criadoEm:Date.now()});fechar();render();}
+
+async function formNovoAnimal(loteFixo,nascimento){
+  const {propriedades,marcas,lotes,animais}=await tudo();
+  if(lotes.length===0){fechar();return alert("Crie um lote primeiro.");}
+  const optLotes=lotes.map(l=>{const p=propriedades.find(x=>x.id===l.propriedadeId);
+    return`<option value="${l.id}" ${l.id===loteFixo?"selected":""}>${esc(l.nome)}${p?` — ${esc(p.nome)}`:""}</option>`;}).join("");
+  const femeas=animais.filter(a=>a.sexo==="F");
+  const optMae=`<option value="">— ${nascimento?"selecione a mãe":"nenhuma / comprado"} —</option>`+
+    femeas.map(m=>`<option value="${m.id}">${esc(m.brinco)}${m.nome?` · ${esc(m.nome)}`:""}</option>`).join("");
+  const optMarca=`<option value="">— sem marca —</option>`+
+    marcas.map(m=>`<option value="${m.id}">${esc(m.sigla)}${m.nome?` · ${esc(m.nome)}`:""}</option>`).join("");
+  abrir(`<h2>${nascimento?"Registrar nascimento":"Novo animal"}</h2>
+    <label>Brinco / identificação *</label><input id="a_brinco" placeholder="Ex: 1234">
+    <label>Nome (opcional)</label><input id="a_nome">
+    <label>Sexo *</label><select id="a_sexo"><option value="F">Fêmea</option><option value="M">Macho</option></select>
+    <label>Data de nascimento</label><input id="a_nasc" type="date" value="${hoje()}">
+    <label>Mãe ${nascimento?"*":"(se nasceu na propriedade)"}</label><select id="a_mae">${optMae}</select>
+    <label>Marca / dono</label><select id="a_marca">${optMarca}</select>
+    <label>Lote *</label><select id="a_lote">${optLotes}</select>
+    <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+      <button class="btn" onclick="salvarAnimal(${!!nascimento})">Salvar</button></div>`);}
+async function salvarAnimal(nascimento){
+  const brinco=val("a_brinco");if(!brinco)return alert("Informe o brinco.");
+  const maeId=val("a_mae")||null;
+  if(nascimento&&!maeId)return alert("Selecione a mãe do bezerro.");
+  const a={id:uid(),brinco,nome:val("a_nome"),sexo:val("a_sexo"),dataNascimento:val("a_nasc"),
+    maeId,marcaId:val("a_marca")||null,loteAtualId:val("a_lote"),status:"Ativo",criadoEm:Date.now()};
+  await put("animais",a);
+  if(maeId){const m=await get("animais",maeId);await registrarEvento(a.id,"Nascimento",a.dataNascimento,`Filho(a) de ${m?m.brinco:"—"}`);}
+  fechar();render();
+}
+
+async function formVacinarLote(loteId){const l=await get("lotes",loteId);
+  abrir(`<h2>Vacinar lote inteiro</h2><div class="meta">Lote: <b>${esc(l.nome)}</b>. Registra a vacinação em cada animal ativo.</div>
+    <label>Vacina / produto *</label><input id="v_vac" placeholder="Ex: Aftosa, Brucelose…">
+    <label>Data</label><input id="v_data" type="date" value="${hoje()}">
+    <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+      <button class="btn" onclick="confVacLote('${loteId}')">Aplicar</button></div>`);}
+async function confVacLote(id){const v=val("v_vac");if(!v)return alert("Informe a vacina.");
+  const n=await vacinarLote(id,v,val("v_data"));fechar();render();alert(`"${v}" registrada em ${n} animal(is).`);}
+
+async function formMover(id){const a=await get("animais",id);
+  const {propriedades,lotes}=await tudo();const outros=lotes.filter(l=>l.id!==a.loteAtualId);
+  if(!outros.length)return alert("Não há outro lote.");
+  const opt=outros.map(l=>{const p=propriedades.find(x=>x.id===l.propriedadeId);
+    return`<option value="${l.id}">${esc(l.nome)}${p?` — ${esc(p.nome)}`:""}</option>`;}).join("");
+  abrir(`<h2>Mover de lote</h2><label>Novo lote</label><select id="mv_lote">${opt}</select>
+    <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+      <button class="btn" onclick="confMover('${id}')">Mover</button></div>`);}
+async function confMover(id){await moverAnimal(id,val("mv_lote"));fechar();verAnimal(id);}
+
+async function formEvento(id,tipoFixo){
+  const opt=TIPOS.map(t=>`<option value="${t}" ${t===tipoFixo?"selected":""}>${t}</option>`).join("");
+  abrir(`<h2>${tipoFixo||"Registrar evento"}</h2>
+    <label>Tipo</label><select id="e_tipo">${opt}</select>
+    <label>Data</label><input id="e_data" type="date" value="${hoje()}">
+    <label>Detalhes</label><textarea id="e_det" placeholder="Ex: vacina, dose, peso, observações…"></textarea>
+    <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+      <button class="btn" onclick="salvarEvento('${id}')">Salvar</button></div>`);}
+async function salvarEvento(id){await registrarEvento(id,val("e_tipo"),val("e_data"),val("e_det"));fechar();verAnimal(id);}
+
+async function apagarPropriedade(id){
+  const ls=(await getAll("lotes")).filter(l=>l.propriedadeId===id);
+  if(ls.length)return alert("Apague os lotes desta propriedade antes.");
+  if(!confirm("Apagar esta propriedade?"))return;await del("propriedades",id);irAba('painel');}
+async function apagarLote(id){
+  const as=(await getAll("animais")).filter(a=>a.loteAtualId===id);
+  if(as.length)return alert("Mova ou apague os animais deste lote antes.");
+  if(!confirm("Apagar este lote?"))return;await del("lotes",id);voltar();}
+async function apagarAnimal(id){if(!confirm("Apagar este animal e seu histórico?"))return;
+  const evs=(await getAll("eventos")).filter(e=>e.animalId===id);for(const e of evs)await del("eventos",e.id);
+  await del("animais",id);voltar();}
+
+/* ======================= BACKUP ======================= */
+async function exportar(){
+  const d={versao:2,exportadoEm:new Date().toISOString()};
+  for(const s of["propriedades","marcas","lotes","animais","eventos"])d[s]=await getAll(s);
+  const b=new Blob([JSON.stringify(d,null,2)],{type:"application/json"}),u=URL.createObjectURL(b),a=document.createElement("a");
+  a.href=u;a.download=`rebanho-backup-${hoje()}.json`;a.click();URL.revokeObjectURL(u);
+}
+function importar(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();
+  r.onload=async()=>{try{const d=JSON.parse(r.result);
+    if(!confirm("Importar substitui TODOS os dados atuais. Continuar?"))return;
+    for(const s of["propriedades","marcas","lotes","animais","eventos"]){
+      for(const it of await getAll(s))await del(s,it.id);for(const it of(d[s]||[]))await put(s,it);}
+    alert("Backup importado.");render();
+  }catch(e){alert("Arquivo inválido.");}};r.readAsText(f);}
+
+/* ======================= INICIAR ======================= */
+abrirDB().then(render).catch(()=>{
+  $t.innerHTML=`<div class="vazio"><b>Erro ao abrir o banco.</b><div class="meta">Use um navegador normal (não janela privada).</div></div>`;});
+</script>
+</body>
+</html>
