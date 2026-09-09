@@ -205,6 +205,8 @@ const esc=s=>(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"
 const val=id=>(document.getElementById(id).value||"").trim();
 const TIPOS=["Vacinação","Medicamento","Marcação","Nascimento","Movimentação","Pesagem","Tratamento","Reprodução","Morte","Venda","Outro"];
 const VIAS=["Injeção","Pour on","Spray","Brinco","Ingestão","Outro"];
+const TIPOS_MED=["Vacina","Antibiótico","Vermífugo","Anti-inflamatório","Carrapaticida/Mosquicida","Vitamina/Mineral","Hormônio","Outro"];
+const optTipoMed=sel=>TIPOS_MED.map(t=>`<option value="${t}" ${t===sel?"selected":""}>${t}</option>`).join("");
 const COW=`<svg class="cattle" viewBox="0 0 640 512" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M96 224c0-53 43-96 96-96h256c53 0 96 43 96 96v32c0 71-57 128-128 128H224c-71 0-128-57-128-128v-32zm40-140c-8-20-30-52-70-52-6 0-10 6-8 12 8 26 30 52 60 60 9 3 21-11 18-20zm368 0c-3 9 9 23 18 20 30-8 52-34 60-60 2-6-2-12-8-12-40 0-62 32-70 52zM240 300a20 20 0 100-40 20 20 0 000 40zm160 0a20 20 0 100-40 20 20 0 000 40z"/></svg>`;
 
 /* Carrega tudo de uma vez e monta em memória */
@@ -778,12 +780,12 @@ async function gerenciarMedicamentos(){
   let lst=meds.map(m=>`<div class="sheet-item"><span class="si">💊</span>
     <div style="flex:1"><b>${esc(m.nome)}</b>${m.marca?` · ${esc(m.marca)}`:""}
       ${(m.tipo||m.fabricante)?`<div class="meta">${[m.tipo,m.fabricante].filter(Boolean).map(esc).join(" · ")}</div>`:""}</div>
-    <button class="btn-fant" style="padding:4px;color:var(--perigo)" onclick="del('medicamentos','${m.id}').then(gerenciarMedicamentos)">✕</button></div>`).join("")||`<div class="meta">Nenhum medicamento cadastrado ainda.</div>`;
-  const optTipo=["Vacina","Antibiótico","Vermífugo","Anti-inflamatório","Carrapaticida/Mosquicida","Vitamina/Mineral","Hormônio","Outro"].map(t=>`<option value="${t}">${t}</option>`).join("");
+    <button class="btn-fant" style="padding:4px 8px;color:var(--verde)" onclick="formEditarMedicamento('${m.id}')">✎</button>
+    <button class="btn-fant" style="padding:4px 8px;color:var(--perigo)" onclick="excluirMedicamento('${m.id}')">✕</button></div>`).join("")||`<div class="meta">Nenhum medicamento cadastrado ainda.</div>`;
   abrir(`<h2>Medicamentos</h2>${lst}
     <div class="h3" style="margin-left:0">Cadastrar novo</div>
     <label>Nome *</label><input id="med_nome" placeholder="Ex: Ivomec">
-    <label>Tipo</label><select id="med_tipo">${optTipo}</select>
+    <label>Tipo</label><select id="med_tipo">${optTipoMed()}</select>
     <label>Fabricante</label><input id="med_fab" placeholder="Ex: Boehringer">
     <label>Marca comercial</label><input id="med_marca" placeholder="Ex: Ivomec Gold">
     <label>Observação</label><input id="med_obs" placeholder="Opcional">
@@ -794,6 +796,28 @@ async function salvarMedicamento(){
   const nome=val("med_nome");if(!nome)return alert("Informe o nome do medicamento.");
   await put("medicamentos",{id:uid(),nome,tipo:val("med_tipo"),fabricante:val("med_fab"),marca:val("med_marca"),obs:val("med_obs")});
   gerenciarMedicamentos();
+}
+async function excluirMedicamento(id){
+  const m=await get("medicamentos",id);
+  if(!confirm(`Excluir o medicamento "${m?m.nome:""}"?`))return;
+  await del("medicamentos",id); gerenciarMedicamentos();
+}
+async function formEditarMedicamento(id){
+  const m=await get("medicamentos",id);
+  abrir(`<h2>Editar medicamento</h2>
+    <label>Nome *</label><input id="med_nome" value="${esc(m.nome||"")}">
+    <label>Tipo</label><select id="med_tipo">${optTipoMed(m.tipo)}</select>
+    <label>Fabricante</label><input id="med_fab" value="${esc(m.fabricante||"")}">
+    <label>Marca comercial</label><input id="med_marca" value="${esc(m.marca||"")}">
+    <label>Observação</label><input id="med_obs" value="${esc(m.obs||"")}">
+    <div class="lado" style="margin-top:16px"><button class="btn btn-sec" onclick="gerenciarMedicamentos()">Voltar</button>
+      <button class="btn" onclick="salvarEdicaoMedicamento('${id}')">Salvar</button></div>`);
+}
+async function salvarEdicaoMedicamento(id){
+  const nome=val("med_nome");if(!nome)return alert("Informe o nome do medicamento.");
+  const m=await get("medicamentos",id);
+  m.nome=nome;m.tipo=val("med_tipo");m.fabricante=val("med_fab");m.marca=val("med_marca");m.obs=val("med_obs");
+  await put("medicamentos",m); gerenciarMedicamentos();
 }
 
 async function formEvento(id,tipoFixo){
