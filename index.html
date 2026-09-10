@@ -284,12 +284,14 @@ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
   document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("ativo",x===b));
   render();
 });
+function topoPagina(){window.scrollTo({top:0,left:0,behavior:"auto"});}
 function irAba(a){aba=a;document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("ativo",x.dataset.aba===a));render();}
-function render(){({painel:telaPainel,lotes:telaLotes,animais:telaAnimais,perfil:telaPerfil}[aba])();}
+function render(){topoPagina();({painel:telaPainel,lotes:telaLotes,animais:telaAnimais,perfil:telaPerfil}[aba])();}
 function voltar(){render();}
 
 /* ======================= PAINEL (dashboard) ======================= */
 async function telaPainel(){
+  topoPagina();
   const {propriedades,marcas,lotes,animais,pastos}=await tudo();
   const ativos=animais.filter(a=>a.status==="Ativo");
   const total=ativos.length;
@@ -375,6 +377,7 @@ const mod=(ic,t,d,fn)=>`<div class="mod" onclick="${fn}"><div class="mic">${ic}<
   <div class="mt">${t}</div><div class="md">${d}</div><div class="chev">›</div></div>`;
 
 async function telaNascimentos(){
+  topoPagina();
   const {animais,lotes}=await tudo();
   const nomeLote=id=>(lotes.find(l=>l.id===id)||{}).nome||"—";
   const rotMae=id=>{const m=animais.find(a=>a.id===id);return m?rotulo(m):"—";};
@@ -393,6 +396,7 @@ async function telaNascimentos(){
 }
 
 async function telaGestaoPasto(){
+  topoPagina();
   const {propriedades,lotes,animais,pastos}=await tudo();
   const nomeLote=id=>(lotes.find(l=>l.id===id)||{}).nome||"—";
   const contaLote=lid=>animais.filter(a=>a.loteAtualId===lid&&a.status==="Ativo").length;
@@ -426,6 +430,7 @@ async function excluirPastoLista(id){
 }
 
 async function telaAvisos(){
+  topoPagina();
   const {propriedades,pastos}=await tudo();
   const cfg=await getConfig(); const dias=diasDesde(cfg.ultimoBackup); const freq=cfg.lembreteDias||7;
   const nomeProp=id=>(propriedades.find(p=>p.id===id)||{}).nome||"";
@@ -447,6 +452,7 @@ async function telaAvisos(){
 }
 
 async function verPropriedade(pid){
+  topoPagina();
   const p=await get("propriedades",pid);
   const {lotes,animais,pastos}=await tudo();
   const meusLotes=lotes.filter(l=>l.propriedadeId===pid);
@@ -492,6 +498,7 @@ const pastoStatusChip=pt=>{
 
 /* ======================= LOTES ======================= */
 async function telaLotes(){
+  topoPagina();
   const {propriedades,lotes,animais}=await tudo();
   const conta=id=>animais.filter(a=>a.loteAtualId===id&&a.status==="Ativo").length;
   let html=`<button class="btn" onclick="formNovoLote()">+ Novo lote</button>`;
@@ -512,6 +519,7 @@ async function telaLotes(){
   $t.innerHTML=html;
 }
 async function verLote(id){
+  topoPagina();
   const l=await get("lotes",id),p=l.propriedadeId?await get("propriedades",l.propriedadeId):null;
   const animais=(await getAll("animais")).filter(a=>a.loteAtualId===id&&a.status==="Ativo");
   const nomeLote=l.nome;
@@ -530,6 +538,7 @@ async function verLote(id){
 
 /* ======================= ANIMAIS ======================= */
 async function telaAnimais(){
+  topoPagina();
   const {propriedades,lotes,animais}=await tudo();
   const nomeLote=id=>(lotes.find(l=>l.id===id)||{}).nome||"—";
   let html=`<button class="btn" onclick="formNovoAnimal()">+ Novo animal</button>`;
@@ -551,6 +560,7 @@ function linhaAnimal(a,nomeLote,mostraLote){
       ${a._marcaSigla?`<span class="chip chip-marca">${esc(a._marcaSigla)}</span>`:""}</div></div>`;
 }
 async function verAnimal(id){
+  topoPagina();
   const a=await get("animais",id),{lotes,marcas}=await tudo();
   const nomeLote=(lotes.find(l=>l.id===a.loteAtualId)||{}).nome||"—";
   const marca=marcas.find(m=>m.id===a.marcaId);
@@ -592,6 +602,7 @@ async function verAnimal(id){
 
 /* ======================= PERFIL / CONFIG ======================= */
 async function telaPerfil(){
+  topoPagina();
   const {propriedades,marcas,lotes,animais,eventos,medicamentos}=await tudo();
   const p=await get("perfil","perfil");
   const cfg=await getConfig(); const _dias=diasDesde(cfg.ultimoBackup); const _freq=cfg.lembreteDias||7;
@@ -1015,6 +1026,7 @@ async function confMover(id){await moverAnimal(id,val("mv_lote"));fechar();verAn
 
 /* ======================= MANEJO ======================= */
 async function telaManejo(){
+  topoPagina();
   const {animais,eventos,medicamentos}=await tudo();
   const nomeAnimal=id=>{const a=animais.find(x=>x.id===id);return a?`${rotulo(a)} ${codAnimal(a)}`:"Animal não encontrado";};
   const nomeMed=id=>{const m=medicamentos.find(x=>x.id===id);return m?m.nome:"Medicamento não informado";};
