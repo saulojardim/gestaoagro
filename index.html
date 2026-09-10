@@ -41,16 +41,25 @@
 
   /* ---------- Topo ---------- */
   .topo{
-    background:#fff;padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
-    display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20;border-bottom:1px solid var(--linha);
+    background:#fff;
+    padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
+    display:grid;
+    grid-template-columns:44px 1fr 44px;
+    align-items:center;
+    position:sticky;top:0;z-index:20;
+    border-bottom:1px solid var(--linha);
   }
-  .topo .icobtn{width:40px;height:40px;border-radius:12px;background:none;color:var(--verde-esc);font-size:22px;
-    display:flex;align-items:center;justify-content:center;}
-  .topo .tit{flex:1;text-align:center;}
+  .topo .icobtn{
+    width:44px;height:44px;border-radius:12px;background:none;color:var(--verde-esc);font-size:22px;
+    display:flex;align-items:center;justify-content:center;padding:0;line-height:1;
+  }
+  .topo .tit{text-align:center;}
   .topo .tit h1{margin:0;font-size:19px;font-weight:800;color:var(--verde-esc);}
   .topo .tit .sub{font-size:12px;color:var(--muted);margin-top:1px;}
-  .topo .mais{width:44px;height:44px;border-radius:50%;background:var(--verde);color:#fff;font-size:26px;
-    box-shadow:var(--sombra);display:flex;align-items:center;justify-content:center;}
+  .topo .mais{
+    width:44px;height:44px;border-radius:50%;background:var(--verde);color:#fff;font-size:26px;
+    box-shadow:var(--sombra);display:flex;align-items:center;justify-content:center;padding:0;line-height:1;
+  }
   .topo .mais:active{background:var(--verde-med);}
 
   main{max-width:660px;margin:0 auto;padding:16px 14px 8px;}
