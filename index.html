@@ -115,6 +115,7 @@
 
   /* ---------- Módulos ---------- */
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .mod-list{display:flex;flex-direction:column;gap:12px;margin-bottom:6px;}
   .mod{background:var(--verde-lite);border-radius:var(--radius);padding:14px;cursor:pointer;position:relative;}
   .mod:active{background:var(--verde-lite2);}
   .mod .mic{width:44px;height:44px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;
@@ -1194,9 +1195,11 @@ async function telaManejo(){
   $t.innerHTML=`<button class="voltar" onclick="irAba('painel')">‹ Painel</button>
     <div class="sechead"><span class="sic">☑</span><h2>Manejo</h2></div>
     <div class="meta" style="margin:0 4px 14px">Escolha a ação — depois você aplica a um animal ou a um lote inteiro.</div>
+    <div class="mod-list">
     ${mod("🔥","Marcar animais","Registrar marcação (ferro).","formManejo('Marcação')")}
     ${mod("💊","Medicamento aplicado","Injeção, pour on, spray, brinco, ingestão…","formManejo('Medicamento')")}
     ${mod("↷","Trocar de lote","Mover um animal ou o lote inteiro.","formManejo('Movimentação')")}
+    </div>
     <div class="manejo-hist">
       <div class="sechead"><span class="sic">🗂</span><h2>Histórico de manejo</h2></div>
       ${sec("Medicamento","💊","Medicações realizadas")}
