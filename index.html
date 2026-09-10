@@ -168,7 +168,7 @@
 
 <div class="topo">
   <button class="icobtn" onclick="menuConfig()">☰</button>
-  <div class="tit"><h1>Gestão do Rebanho</h1><div class="sub">Pecuária organizada gera resultados</div></div>
+  <div class="tit"><h1>Gestão do Rebanho</h1></div>
   <button class="mais" onclick="menuAdicionar()">+</button>
 </div>
 
@@ -318,11 +318,8 @@ async function telaPainel(){
   $t.innerHTML=`
     ${lembrete}
     <div class="hero">
-      <div class="assinatura">Pecuária que evolui com você</div>
       <div class="cabeca"><div class="tile"><img src="boi.png" alt="boi"></div><div class="rot">Total do Rebanho</div></div>
       <div class="num">${total}</div><div class="peq">animais cadastrados</div>
-      <div class="linha"><span style="font-size:20px">📊</span>
-        <div class="frase">Mais controle<br>Mais produtividade<br>Um futuro maior</div></div>
     </div>
 
     ${pastoResumo}
@@ -339,9 +336,7 @@ async function telaPainel(){
       ${mod("🌱","Gestão do Pasto","Pastos, capim, área e situação.","telaGestaoPasto()")}
       ${mod("🔔","Avisos","Backup, pastos em descanso e alertas.","telaAvisos()")}
     </div>
-
-    <div class="faixa"><span class="fic">📈</span>
-      <div class="ft"><b>Informação no campo,</b> decisões mais assertivas.</div></div>`;
+`;
 }
 const mod=(ic,t,d,fn)=>`<div class="mod" onclick="${fn}"><div class="mic">${ic}</div>
   <div class="mt">${t}</div><div class="md">${d}</div><div class="chev">›</div></div>`;
