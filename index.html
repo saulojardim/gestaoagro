@@ -243,7 +243,7 @@ async function vacinarLote(loteId,vac,data,hora){
 }
 
 /* ======================= NAV ======================= */
-const $t=document.getElementById("tela"); let aba="painel"; let _perfilFoto="";
+const $t=document.getElementById("tela"); let aba="painel"; let _perfilFoto=""; let _lembreteOculto=false;
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
   aba=b.dataset.aba;
   document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("ativo",x===b));
@@ -258,6 +258,16 @@ async function telaPainel(){
   const {propriedades,marcas,lotes,animais}=await tudo();
   const ativos=animais.filter(a=>a.status==="Ativo");
   const total=ativos.length;
+  const cfg=await getConfig();
+  const dias=diasDesde(cfg.ultimoBackup), freq=cfg.lembreteDias||7;
+  const precisaBackup=animais.length>0 && !_lembreteOculto && (dias===null||dias>=freq);
+  const lembrete=precisaBackup?`
+    <div class="card" style="border-left:4px solid #e0a800;background:#fffdf5">
+      <b>☁️ Hora de fazer backup</b>
+      <div class="meta" style="margin:4px 0 10px">${dias===null?"Você ainda não salvou nenhum backup.":`Último backup há ${dias} dia(s).`} Salve no iCloud/Arquivos pra não perder nada.</div>
+      <button class="btn" style="margin:0 0 8px" onclick="salvarNuvem()">☁️ Salvar backup agora</button>
+      <button class="btn-fant" style="padding:6px" onclick="_lembreteOculto=true;telaPainel()">Agora não</button>
+    </div>`:"";
 
   const contaProp=pid=>ativos.filter(a=>propDoAnimal(a,lotes)===pid);
   const contaMarca=(arr,mid)=>arr.filter(a=>a.marcaId===mid).length;
@@ -285,6 +295,7 @@ async function telaPainel(){
   }
 
   $t.innerHTML=`
+    ${lembrete}
     <div class="hero">
       <div class="assinatura">Pecuária que evolui com você</div>
       <div class="cabeca"><div class="tile"><img src="boi.png" alt="boi"></div><div class="rot">Total do Rebanho</div></div>
@@ -444,6 +455,7 @@ async function verAnimal(id){
 async function telaPerfil(){
   const {propriedades,marcas,lotes,animais,eventos,medicamentos}=await tudo();
   const p=await get("perfil","perfil");
+  const cfg=await getConfig(); const _dias=diasDesde(cfg.ultimoBackup); const _freq=cfg.lembreteDias||7;
   const perfilHTML = p ? `
     <div class="card" style="display:flex;align-items:center;gap:14px">
       <div class="avatar-wrap" onclick="formPerfil()">
@@ -474,8 +486,16 @@ async function telaPerfil(){
     <div class="sechead" style="margin-top:18px"><h2 style="font-size:16px">Backup</h2></div>
     <div class="card" style="border-left:4px solid var(--verde)">
       <b>⚠ Faça backup com frequência.</b>
-      <div class="meta" style="margin-top:4px">Os dados ficam só neste aparelho. Exporte e guarde em outro lugar.</div></div>
-    <button class="btn" onclick="exportar()">⬇ Exportar backup (.json)</button>
+      <div class="meta" style="margin-top:4px">Os dados ficam só neste aparelho. Salve na nuvem pra não perder nada.</div>
+      <div class="meta" style="margin-top:6px">${cfg.ultimoBackup?`Último backup: há ${_dias} dia(s).`:"Nenhum backup salvo ainda."}</div></div>
+    <button class="btn" onclick="salvarNuvem()">☁️ Salvar no iCloud / Arquivos</button>
+    <label style="display:block;font-size:13px;color:var(--muted);margin:4px 4px 5px;font-weight:600">Lembrar de fazer backup a cada</label>
+    <select onchange="salvarFreq(this.value)" style="margin-bottom:12px">
+      <option value="3" ${_freq===3?"selected":""}>3 dias</option>
+      <option value="7" ${_freq===7?"selected":""}>7 dias</option>
+      <option value="15" ${_freq===15?"selected":""}>15 dias</option>
+      <option value="30" ${_freq===30?"selected":""}>30 dias</option></select>
+    <button class="btn btn-sec" onclick="exportar()">⬇ Baixar backup (.json)</button>
     <label class="btn btn-sec" style="text-align:center;cursor:pointer">⬆ Importar backup
       <input type="file" accept="application/json" onchange="importar(this)" style="display:none"></label>`;
 }
@@ -1004,11 +1024,37 @@ async function apagarAnimal(id){if(!confirm("Apagar este animal e seu histórico
   await del("animais",id);voltar();}
 
 /* ======================= BACKUP ======================= */
-async function exportar(){
-  const d={versao:2,exportadoEm:new Date().toISOString()};
+async function dadosBackup(){
+  const d={versao:4,exportadoEm:new Date().toISOString()};
   for(const s of["propriedades","marcas","lotes","animais","eventos","medicamentos","perfil","pastos"])d[s]=await getAll(s);
+  return d;
+}
+async function exportar(){
+  const d=await dadosBackup();
   const b=new Blob([JSON.stringify(d,null,2)],{type:"application/json"}),u=URL.createObjectURL(b),a=document.createElement("a");
   a.href=u;a.download=`rebanho-backup-${hoje()}.json`;a.click();URL.revokeObjectURL(u);
+  await marcarBackup();
+}
+/* --- Config / controle de backup --- */
+async function getConfig(){return (await get("perfil","config"))||{id:"config"};}
+async function marcarBackup(){const c=await getConfig();c.id="config";c.ultimoBackup=Date.now();await put("perfil",c);}
+const diasDesde=ts=>ts?Math.floor((Date.now()-ts)/86400000):null;
+async function salvarFreq(v){const c=await getConfig();c.id="config";c.lembreteDias=parseInt(v,10)||7;await put("perfil",c);}
+/* --- Salvar na nuvem: abre o compartilhamento do iPhone (Salvar em Arquivos → iCloud) --- */
+async function salvarNuvem(){
+  const d=await dadosBackup();
+  const blob=new Blob([JSON.stringify(d,null,2)],{type:"application/json"});
+  const file=new File([blob],`rebanho-backup-${hoje()}.json`,{type:"application/json"});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{
+      await navigator.share({files:[file],title:"Backup do Rebanho"});
+      await marcarBackup(); _lembreteOculto=true;
+      if(aba==="perfil")telaPerfil(); else if(aba==="painel")telaPainel();
+    }catch(e){/* usuário cancelou o compartilhamento */}
+  }else{
+    await exportar(); _lembreteOculto=true;
+    alert("Seu navegador não abre o compartilhamento de arquivos. O backup foi baixado — mova para o iCloud Drive pelo app Arquivos.");
+  }
 }
 function importar(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();
   r.onload=async()=>{try{const d=JSON.parse(r.result);
