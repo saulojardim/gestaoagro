@@ -156,7 +156,23 @@
   .btn-sec{background:#fff;color:var(--verde);border:1.5px solid var(--verde);box-shadow:none;}
   .btn-perigo{background:#fff;color:var(--perigo);border:1.5px solid var(--perigo);box-shadow:none;}
   .btn-fant{background:none;color:var(--muted);padding:10px;box-shadow:none;}
-  .lado{display:flex;gap:8px;} .lado .btn{margin-bottom:0;}
+  .lado{display:flex;gap:12px;} .lado .btn{margin-bottom:0;}
+  .animal-actions{margin-top:18px;margin-bottom:22px;}
+  .animal-actions > .btn{margin-bottom:14px;}
+  .animal-actions .lado{margin-bottom:12px;}
+  .animal-actions .lado + .btn{margin-bottom:0;}
+  .animal-saida{margin-top:4px;margin-bottom:28px;}
+  .manejo-hist{margin-top:26px;}
+  .manejo-sec{background:#fff;border-radius:var(--radius);box-shadow:var(--sombra);padding:14px;margin-bottom:14px;}
+  .manejo-sec-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
+  .manejo-sec-title{font-size:16px;font-weight:800;color:var(--verde-esc);}
+  .manejo-count{font-size:12px;color:var(--muted);font-weight:700;background:#f1f5f1;border-radius:20px;padding:3px 9px;}
+  .manejo-reg{padding:10px 0;border-top:1px solid var(--linha);}
+  .manejo-reg:first-of-type{border-top:0;padding-top:2px;}
+  .manejo-reg .mr-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+  .manejo-reg .mr-title{font-weight:700;color:var(--texto);font-size:14px;}
+  .manejo-reg .mr-date{font-size:12px;color:var(--muted);white-space:nowrap;}
+  .manejo-reg .mr-meta{font-size:13px;color:var(--muted);margin-top:3px;line-height:1.4;}
 
   /* ---------- Modal ---------- */
   .ov{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:none;align-items:flex-end;justify-content:center;}
@@ -563,11 +579,13 @@ async function verAnimal(id){
         ${mae?`Mãe: <b onclick="verAnimal('${mae.id}')" style="color:var(--verde);cursor:pointer">${esc(rotulo(mae))}</b><br>`:""}
         ${filhos.length?`Filhos: ${filhos.length}`:""}</div>
       ${a.saida?blocoSaida(a.saida):""}</div>
-    <button class="btn btn-sec" onclick="formEditarAnimal('${id}')">✎ Editar dados</button>
-    <div class="lado"><button class="btn" onclick="formEvento('${id}','Vacinação')">💉 Vacinar</button>
-      <button class="btn btn-sec" onclick="formMover('${id}')">↷ Mover lote</button></div>
-    <button class="btn btn-sec" onclick="formEvento('${id}')">+ Registrar evento de manejo</button>
-    ${a.status==="Ativo"?`<button class="btn btn-perigo" onclick="formSaida('${id}')">↩ Registrar saída (morte/venda)</button>`:""}
+    <div class="animal-actions">
+      <button class="btn btn-sec" onclick="formEditarAnimal('${id}')">✎ Editar dados</button>
+      <div class="lado"><button class="btn" onclick="formEvento('${id}','Vacinação')">💉 Vacinar</button>
+        <button class="btn btn-sec" onclick="formMover('${id}')">↷ Mover lote</button></div>
+      <button class="btn btn-sec" onclick="formEvento('${id}')">+ Registrar evento de manejo</button>
+    </div>
+    ${a.status==="Ativo"?`<button class="btn btn-perigo animal-saida" onclick="formSaida('${id}')">↩ Registrar saída (morte/venda)</button>`:""}
     <div class="h3">Histórico</div>${tl}
     <button class="btn-fant" onclick="apagarAnimal('${id}')">Apagar animal</button>`;
 }
@@ -997,12 +1015,53 @@ async function confMover(id){await moverAnimal(id,val("mv_lote"));fechar();verAn
 
 /* ======================= MANEJO ======================= */
 async function telaManejo(){
+  const {animais,eventos,medicamentos}=await tudo();
+  const nomeAnimal=id=>{const a=animais.find(x=>x.id===id);return a?`${rotulo(a)} ${codAnimal(a)}`:"Animal não encontrado";};
+  const nomeMed=id=>{const m=medicamentos.find(x=>x.id===id);return m?m.nome:"Medicamento não informado";};
+  const gruposManejo=(tipo)=>{
+    const evs=eventos.filter(e=>e.tipo===tipo).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||(b.hora||"").localeCompare(a.hora||"")||(b.criadoEm||0)-(a.criadoEm||0));
+    const mapa=new Map();
+    for(const e of evs){
+      const chave=[e.tipo,e.data||"",e.hora||"",e.detalhes||"",e.medicamentoId||"",e.via||"",e.dose||""].join("|");
+      if(!mapa.has(chave))mapa.set(chave,{...e,animalIds:[]});
+      mapa.get(chave).animalIds.push(e.animalId);
+    }
+    return [...mapa.values()];
+  };
+  const sec=(tipo,icone,titulo)=>{
+    const grupos=gruposManejo(tipo);
+    if(!grupos.length)return `<div class="manejo-sec"><div class="manejo-sec-head"><div class="manejo-sec-title">${icone} ${titulo}</div><span class="manejo-count">0</span></div><div class="meta">Nenhum registro ainda.</div></div>`;
+    const regs=grupos.map(g=>{
+      const nomes=g.animalIds.map(nomeAnimal);
+      const quem=nomes.length<=3?nomes.map(esc).join(", "):`${nomes.slice(0,3).map(esc).join(", ")} +${nomes.length-3}`;
+      let tituloReg="";
+      let detalhe="";
+      if(tipo==="Medicamento"){
+        tituloReg=esc(nomeMed(g.medicamentoId));
+        detalhe=[g.via?`Via: ${esc(g.via)}`:"",g.dose?`Dose: ${esc(g.dose)}`:"",g.detalhes?esc(g.detalhes):""].filter(Boolean).join(" · ");
+      }else if(tipo==="Marcação"){
+        tituloReg="Marcação realizada";
+        detalhe=g.detalhes?esc(g.detalhes):"Sem observação";
+      }else{
+        tituloReg=esc(g.detalhes||"Troca de lote");
+      }
+      const quando=`${fmt(g.data)}${g.hora?` · ${esc(g.hora)}`:""}`;
+      return `<div class="manejo-reg"><div class="mr-top"><div class="mr-title">${tituloReg}</div><div class="mr-date">${quando}</div></div><div class="mr-meta">${quem}${detalhe?`<br>${detalhe}`:""}</div></div>`;
+    }).join("");
+    return `<div class="manejo-sec"><div class="manejo-sec-head"><div class="manejo-sec-title">${icone} ${titulo}</div><span class="manejo-count">${grupos.length}</span></div>${regs}</div>`;
+  };
   $t.innerHTML=`<button class="voltar" onclick="irAba('painel')">‹ Painel</button>
     <div class="sechead"><span class="sic">☑</span><h2>Manejo</h2></div>
     <div class="meta" style="margin:0 4px 14px">Escolha a ação — depois você aplica a um animal ou a um lote inteiro.</div>
     ${mod("🔥","Marcar animais","Registrar marcação (ferro).","formManejo('Marcação')")}
     ${mod("💊","Medicamento aplicado","Injeção, pour on, spray, brinco, ingestão…","formManejo('Medicamento')")}
-    ${mod("↷","Trocar de lote","Mover um animal ou o lote inteiro.","formManejo('Movimentação')")}`;
+    ${mod("↷","Trocar de lote","Mover um animal ou o lote inteiro.","formManejo('Movimentação')")}
+    <div class="manejo-hist">
+      <div class="sechead"><span class="sic">🗂</span><h2>Histórico de manejo</h2></div>
+      ${sec("Medicamento","💊","Medicações realizadas")}
+      ${sec("Marcação","🔥","Marcações de animais")}
+      ${sec("Movimentação","↷","Trocas de lote")}
+    </div>`;
 }
 async function formManejo(tipo){
   const {propriedades,lotes,animais,medicamentos}=await tudo();
