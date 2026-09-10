@@ -786,27 +786,17 @@ function menuAdicionar(){abrir(`<h2>Adicionar</h2>
   <div class="sheet-item rt" onclick="fechar();formNovoAnimal(null,true)"><span class="si">🍼</span>Registrar nascimento</div>
   <div class="sheet-item rt" onclick="fechar();formSaida()"><span class="si">↩</span>Saída de animal (morte/venda)</div>
   <div class="sheet-item rt" onclick="fechar();gerenciarMedicamentos()"><span class="si">💊</span>Cadastrar medicamento</div>
+  <div class="sheet-item rt" onclick="fechar();gerenciarMarcas()"><span class="si">🏷</span>Marcas / donos</div>
   <div class="sheet-item rt" onclick="fechar();formNovoLote()"><span class="si">▤</span>Novo lote</div>
   <div class="sheet-item rt" onclick="fechar();formNovoPasto()"><span class="si">🌱</span>Novo pasto</div>
   <div class="sheet-item rt" onclick="fechar();formNovaPropriedade()"><span class="si">🏡</span>Nova propriedade</div>
   <button class="btn btn-sec" style="margin-top:14px" onclick="fechar()">Cancelar</button>`);}
 function menuConfig(){abrir(`<h2>Menu</h2>
-  <div class="sheet-item rt" onclick="menuOperacional()"><span class="si">🐄</span>Gestão operacional<span class="chev" style="margin-left:auto;color:var(--verde)">›</span></div>
+  <div class="sheet-item rt" onclick="fechar();irAba('painel')"><span class="si">🐄</span>Gestão operacional</div>
   <div class="sheet-item rt" onclick="menuFinanceiro()"><span class="si">💰</span>Gestão financeira<span class="chev" style="margin-left:auto;color:var(--verde)">›</span></div>
   <div class="sheet-item rt" onclick="fechar();irAba('perfil')"><span class="si">💾</span>Backup e Perfil</div>
   <div class="sheet-item rt" onclick="sobreApp()"><span class="si">ℹ️</span>Sobre o app</div>
   <button class="btn btn-sec" style="margin-top:14px" onclick="fechar()">Fechar</button>`);}
-
-function menuOperacional(){abrir(`<h2>Gestão operacional</h2>
-  <div class="sheet-item rt" onclick="fechar();irAba('painel')"><span class="si">⌂</span>Painel</div>
-  <div class="sheet-item rt" onclick="fechar();telaManejo()"><span class="si">☑</span>Manejo — marcar, medicar, trocar de lote</div>
-  <div class="sheet-item rt" onclick="fechar();telaGestaoPasto()"><span class="si">🌱</span>Gestão do pasto</div>
-  <div class="sheet-item rt" onclick="fechar();telaNascimentos()"><span class="si">🍼</span>Nascimentos</div>
-  <div class="sheet-item rt" onclick="fechar();telaAvisos()"><span class="si">🔔</span>Avisos</div>
-  <div class="sheet-item rt" onclick="fechar();gerenciarMedicamentos()"><span class="si">💊</span>Medicamentos</div>
-  <div class="sheet-item rt" onclick="fechar();gerenciarMarcas()"><span class="si">🏷</span>Marcas / donos</div>
-  <div class="sheet-item rt" onclick="fechar();formNovaPropriedade()"><span class="si">🏡</span>Nova propriedade</div>
-  <button class="btn btn-sec" style="margin-top:14px" onclick="menuConfig()">‹ Voltar</button>`);}
 
 function menuFinanceiro(){abrir(`<h2>Gestão financeira</h2>
   <div class="vazio" style="padding:26px 10px"><div class="big">💰</div><b>Em desenvolvimento</b>
