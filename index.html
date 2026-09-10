@@ -255,7 +255,7 @@ function voltar(){render();}
 
 /* ======================= PAINEL (dashboard) ======================= */
 async function telaPainel(){
-  const {propriedades,marcas,lotes,animais}=await tudo();
+  const {propriedades,marcas,lotes,animais,pastos}=await tudo();
   const ativos=animais.filter(a=>a.status==="Ativo");
   const total=ativos.length;
   const cfg=await getConfig();
@@ -268,6 +268,17 @@ async function telaPainel(){
       <button class="btn" style="margin:0 0 8px" onclick="salvarNuvem()">☁️ Salvar backup agora</button>
       <button class="btn-fant" style="padding:6px" onclick="_lembreteOculto=true;telaPainel()">Agora não</button>
     </div>`:"";
+  let pastoResumo="";
+  if(pastos.length){
+    const contaLote=lid=>ativos.filter(a=>a.loteAtualId===lid).length;
+    const rows=pastos.map(pt=>{
+      const n=(pt.status==="Ocupado"&&pt.loteId)?contaLote(pt.loteId):0;
+      return `<div class="row" style="padding:8px 0;border-top:1px solid var(--linha)">
+        <div class="ti" style="font-size:15px">${esc(pt.nome)}</div>
+        <div>${pt.status==="Ocupado"?`<span class="badge">${n} 🐄</span>`:pastoStatusChip(pt)}</div></div>`;
+    }).join("");
+    pastoResumo=`<div class="card"><div class="ti" style="font-size:16px">🌱 Animais por pasto</div>${rows}</div>`;
+  }
 
   const contaProp=pid=>ativos.filter(a=>propDoAnimal(a,lotes)===pid);
   const contaMarca=(arr,mid)=>arr.filter(a=>a.marcaId===mid).length;
@@ -304,6 +315,7 @@ async function telaPainel(){
         <div class="frase">Mais controle<br>Mais produtividade<br>Um futuro maior</div></div>
     </div>
 
+    ${pastoResumo}
     <div class="sechead"><span class="sic">🏠</span><h2>Propriedades cadastradas</h2>
       <a onclick="irAba('lotes')">Ver todas ›</a></div>
     ${props}
@@ -311,9 +323,11 @@ async function telaPainel(){
     <div class="sechead" style="margin-top:22px"><span class="sic">▦</span><h2>Módulos do sistema</h2></div>
     <div class="grid">
       ${mod("▤","Lotes","Incluir ou mover gado entre lotes.","irAba('lotes')")}
-      ${mod('<img src="bezerro.png" alt="">',"Nascimento de Bezerro","Registro de bezerros com vínculo da mãe.","formNovoAnimal(null,true)")}
+      ${mod('<img src="bezerro.png" alt="">',"Nascimento de Bezerro","Bezerros nascidos, mãe e data.","telaNascimentos()")}
       ${mod("☑","Eventos de Manejo","Marcar, medicar ou trocar de lote.","telaManejo()")}
       ${mod("🗂","Histórico por Animal","Veja tudo que foi feito no animal, com datas.","irAba('animais')")}
+      ${mod("🌱","Gestão do Pasto","Pastos, capim, área e situação.","telaGestaoPasto()")}
+      ${mod("🔔","Avisos","Backup, pastos em descanso e alertas.","telaAvisos()")}
     </div>
 
     <div class="faixa"><span class="fic">📈</span>
@@ -321,6 +335,71 @@ async function telaPainel(){
 }
 const mod=(ic,t,d,fn)=>`<div class="mod" onclick="${fn}"><div class="mic">${ic}</div>
   <div class="mt">${t}</div><div class="md">${d}</div><div class="chev">›</div></div>`;
+
+async function telaNascimentos(){
+  const {animais,lotes}=await tudo();
+  const nomeLote=id=>(lotes.find(l=>l.id===id)||{}).nome||"—";
+  const rotMae=id=>{const m=animais.find(a=>a.id===id);return m?rotulo(m):"—";};
+  const nascidos=animais.filter(a=>a.nascidoNaPropriedade===true)
+    .sort((x,y)=>(y.dataNascimento||"").localeCompare(x.dataNascimento||""));
+  let lst=nascidos.length?"":`<div class="vazio"><div class="big">🍼</div><b>Nenhum nascimento registrado</b><div class="meta">Toque em "Registrar nascimento" para incluir o primeiro bezerro.</div></div>`;
+  for(const a of nascidos)lst+=`<div class="card rt" onclick="verAnimal('${a.id}')">
+    <div class="ti">${esc(rotulo(a))} <span class="chip chip-id">${codAnimal(a)}</span></div>
+    <div class="meta" style="margin-top:6px">${sexoChip(a.sexo)}<span class="chip chip-lote">▦ ${esc(nomeLote(a.loteAtualId))}</span></div>
+    <div class="meta" style="margin-top:6px">Mãe: <b>${a.maeId?esc(rotMae(a.maeId)):"—"}</b> · Nascimento: ${a.dataNascimento?fmt(a.dataNascimento):"—"}</div></div>`;
+  $t.innerHTML=`<button class="voltar" onclick="irAba('painel')">‹ Painel</button>
+    <div class="sechead"><span class="sic">🍼</span><h2>Nascimentos</h2></div>
+    <button class="btn" onclick="formNovoAnimal(null,true)">+ Registrar nascimento</button>
+    <div class="meta" style="margin:0 4px 10px">${nascidos.length} bezerro(s) nascido(s) na propriedade.</div>
+    ${lst}`;
+}
+
+async function telaGestaoPasto(){
+  const {propriedades,lotes,animais,pastos}=await tudo();
+  const nomeProp=id=>(propriedades.find(p=>p.id===id)||{}).nome||"—";
+  const nomeLote=id=>(lotes.find(l=>l.id===id)||{}).nome||"—";
+  const contaLote=lid=>animais.filter(a=>a.loteAtualId===lid&&a.status==="Ativo").length;
+  let lst=pastos.length?"":`<div class="vazio"><div class="big">🌱</div><b>Nenhum pasto cadastrado</b><div class="meta">Toque em "Novo pasto" para começar.</div></div>`;
+  for(const pt of pastos){
+    const n=(pt.status==="Ocupado"&&pt.loteId)?contaLote(pt.loteId):0;
+    lst+=`<div class="card">
+      <div class="row"><div class="ti">${esc(pt.nome)}</div>
+        <div><button class="btn-fant" style="padding:4px 8px;color:var(--verde)" onclick="formEditarPasto('${pt.id}')">✎</button>
+        <button class="btn-fant" style="padding:4px 8px;color:var(--perigo)" onclick="excluirPastoLista('${pt.id}')">✕</button></div></div>
+      <div class="meta">${esc(nomeProp(pt.propriedadeId))}${pt.areaHa!=null?` · ${pt.areaHa} ha`:""}${pt.tipoCapim?` · ${esc(pt.tipoCapim)}`:""}</div>
+      <div class="meta" style="margin-top:6px">${pastoStatusChip(pt)}${pt.status==="Ocupado"&&pt.loteId?`<span class="chip chip-lote">▦ ${esc(nomeLote(pt.loteId))} · ${n} 🐄</span>`:""}</div></div>`;
+  }
+  $t.innerHTML=`<button class="voltar" onclick="irAba('painel')">‹ Painel</button>
+    <div class="sechead"><span class="sic">🌱</span><h2>Gestão do Pasto</h2></div>
+    <button class="btn" onclick="formNovoPasto()">+ Novo pasto</button>
+    ${lst}`;
+}
+async function excluirPastoLista(id){
+  const pt=await get("pastos",id);
+  if(!confirm(`Apagar o pasto "${pt?pt.nome:""}"?`))return;
+  await del("pastos",id); telaGestaoPasto();
+}
+
+async function telaAvisos(){
+  const {propriedades,pastos}=await tudo();
+  const cfg=await getConfig(); const dias=diasDesde(cfg.ultimoBackup); const freq=cfg.lembreteDias||7;
+  const nomeProp=id=>(propriedades.find(p=>p.id===id)||{}).nome||"";
+  const backupCard=(dias===null||dias>=freq)
+    ? `<div class="card" style="border-left:4px solid #e0a800;background:#fffdf5"><b>☁️ Backup pendente</b>
+        <div class="meta" style="margin:4px 0 10px">${dias===null?"Você ainda não salvou nenhum backup.":`Último backup há ${dias} dia(s).`}</div>
+        <button class="btn" style="margin:0" onclick="salvarNuvem()">Salvar backup agora</button></div>`
+    : `<div class="card" style="border-left:4px solid var(--verde)"><b>✅ Backup em dia</b><div class="meta" style="margin-top:4px">Último backup há ${dias} dia(s).</div></div>`;
+  const bloco=(arr,titulo,vazio)=>`<div class="h3">${titulo}</div>`+(arr.length
+    ? arr.map(p=>`<div class="card"><div class="ti" style="font-size:15px">${esc(p.nome)}</div><div class="meta">${esc(nomeProp(p.propriedadeId))}</div></div>`).join("")
+    : `<div class="meta" style="padding:2px 4px 4px">${vazio}</div>`);
+  const descanso=pastos.filter(p=>p.status==="Descanso");
+  const livres=pastos.filter(p=>p.status==="Livre");
+  $t.innerHTML=`<button class="voltar" onclick="irAba('painel')">‹ Painel</button>
+    <div class="sechead"><span class="sic">🔔</span><h2>Avisos</h2></div>
+    ${backupCard}
+    ${bloco(descanso,"🌿 Pastos em descanso","Nenhum pasto em descanso.")}
+    ${bloco(livres,"⬜ Pastos livres","Nenhum pasto livre.")}`;
+}
 
 async function verPropriedade(pid){
   const p=await get("propriedades",pid);
