@@ -669,7 +669,7 @@ async function verAnimal(id){
       ${a.saida?blocoSaida(a.saida):""}</div>
     <div class="animal-actions">
       <button class="btn btn-sec" onclick="formEditarAnimal('${id}')">✎ Editar dados</button>
-      <div class="lado"><button class="btn" onclick="formEvento('${id}','Vacinação')">💉 Vacinar</button>
+      <div class="lado"><button class="btn" onclick="formMedicarAnimal('${id}')">💊 Medicar</button>
         <button class="btn btn-sec" onclick="formMover('${id}')">↷ Mover lote</button></div>
       <button class="btn btn-sec" onclick="formEvento('${id}')">+ Registrar evento de manejo</button>
     </div>
@@ -1330,6 +1330,34 @@ async function salvarEdicaoMedicamento(id){
   await put("medicamentos",m); gerenciarMedicamentos();
 }
 
+async function formMedicarAnimal(id){
+  const a=await get("animais",id);
+  const medicamentos=await getAll("medicamentos");
+  if(!medicamentos.length){
+    abrir(`<h2>💊 Medicar</h2>
+      <div class="meta">Nenhum medicamento cadastrado ainda. Cadastre o primeiro para registrar a aplicação.</div>
+      <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+        <button class="btn" onclick="gerenciarMedicamentos()">Cadastrar medicamento</button></div>`);
+    return;
+  }
+  const optMed=medicamentos.map(m=>`<option value="${m.id}">${esc(m.nome)}${m.marca?` · ${esc(m.marca)}`:""}</option>`).join("");
+  const optVia=VIAS.map(v=>`<option value="${v}">${v}</option>`).join("");
+  abrir(`<h2>💊 Medicar — ${codAnimal(a)}</h2>
+    <label>Medicamento *</label><select id="md_med">${optMed}</select>
+    <label>Via de aplicação</label><select id="md_via">${optVia}</select>
+    <label>Dose (opcional)</label><input id="md_dose" placeholder="Ex: 5 ml">
+    <label>Data e hora</label>
+    <div class="lado"><input id="md_data" type="date" value="${hoje()}"><input id="md_hora" type="time" value="${horaAgora()}"></div>
+    <label>Observação (opcional)</label><input id="md_obs" placeholder="Ex: lote de compra, reforço…">
+    <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+      <button class="btn" onclick="salvarMedicarAnimal('${id}')">Salvar</button></div>`);
+}
+async function salvarMedicarAnimal(id){
+  const medId=(document.getElementById("md_med")||{}).value||null;
+  if(!medId)return alert("Selecione o medicamento.");
+  await registrarEvento(id,"Medicamento",val("md_data"),val("md_obs"),{hora:val("md_hora"),medicamentoId:medId,via:val("md_via"),dose:val("md_dose")});
+  fechar();verAnimal(id);
+}
 async function formEvento(id,tipoFixo){
   const opt=TIPOS.map(t=>`<option value="${t}" ${t===tipoFixo?"selected":""}>${t}</option>`).join("");
   abrir(`<h2>${tipoFixo||"Registrar evento"}</h2>
