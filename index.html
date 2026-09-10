@@ -144,6 +144,9 @@
   .avatar-cam{position:absolute;right:-3px;bottom:-3px;width:25px;height:25px;border-radius:50%;background:var(--verde);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;border:2px solid #fff;}
   .an-thumb{border-radius:10px;background:var(--verde-lite);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:18px;}
   .an-thumb img{width:100%;height:100%;object-fit:cover;}
+  .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;z-index:9999;padding:18px;}
+  .lightbox img{max-width:100%;max-height:100%;border-radius:12px;object-fit:contain;}
+  .lightbox .lb-x{position:absolute;top:16px;right:18px;color:#fff;font-size:26px;opacity:.85;}
   .voltar{background:none;color:var(--verde-esc);font-weight:600;font-size:15px;padding:0;margin:2px 0 12px;}
   .h3{margin:18px 4px 10px;font-size:15px;color:var(--muted);font-weight:700;}
   .evt{border-left:3px solid var(--verde);padding:2px 0 12px 12px;margin-left:4px;}
@@ -648,7 +651,7 @@ async function verAnimal(id){
   $t.innerHTML=`<button class="voltar" onclick="voltar()">‹ Voltar</button>
     <div class="card">
       <div style="display:flex;gap:14px;align-items:flex-start">
-        <div class="an-thumb" style="width:84px;height:84px;font-size:34px;cursor:pointer" onclick="formEditarAnimal('${id}')">${a.foto?`<img src="${esc(a.foto)}" alt="">`:"🐄"}</div>
+        <div class="an-thumb" style="width:84px;height:84px;font-size:34px${a.foto?';cursor:zoom-in':''}" ${a.foto?`onclick="ampliarFotoAnimal('${id}')"`:""}>${a.foto?`<img src="${esc(a.foto)}" alt="">`:"🐄"}</div>
         <div style="flex:1;min-width:0">
           <div class="ti" style="font-size:20px">${esc(rotulo(a))}${a.brinco&&a.nome?` · ${esc(a.nome)}`:""} <span class="chip chip-id">${codAnimal(a)}</span></div>
           <div class="meta" style="margin-top:6px">
@@ -743,6 +746,19 @@ function pickFotoAnimal(input){const f=input.files[0];if(!f)return;
   lerFotoRedimensionada(f,d=>{_animalFoto=d;const el=document.getElementById("an_avatar");if(el)el.innerHTML=`<img src="${d}" alt="">`;});}
 // Miniatura do animal para listas e ficha (foto ou 🐄)
 const animalThumb=(a,size)=>`<div class="an-thumb" style="width:${size}px;height:${size}px">${a.foto?`<img src="${esc(a.foto)}" alt="">`:"🐄"}</div>`;
+// Amplia uma foto em tela cheia; toque em qualquer lugar fecha
+function ampliarFoto(src){
+  if(!src)return;
+  const d=document.createElement("div");
+  d.className="lightbox";
+  const img=document.createElement("img");img.src=src;
+  d.appendChild(img);
+  const x=document.createElement("div");x.className="lb-x";x.textContent="✕";
+  d.appendChild(x);
+  d.onclick=()=>d.remove();
+  document.body.appendChild(d);
+}
+async function ampliarFotoAnimal(id){const a=await get("animais",id);if(a&&a.foto)ampliarFoto(a.foto);}
 async function pickFotoPropriedade(pid,input){
   const f=input.files[0];if(!f)return;
   lerFotoRedimensionada(f,async d=>{
