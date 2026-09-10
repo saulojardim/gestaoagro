@@ -364,10 +364,8 @@ async function telaPainel(){
 
     <div class="sechead" style="margin-top:22px"><span class="sic">▦</span><h2>Módulos do sistema</h2></div>
     <div class="grid">
-      ${mod("▤","Lotes","Incluir ou mover gado entre lotes.","irAba('lotes')")}
       ${mod('<img src="bezerro.png" alt="">',"Nascimento de Bezerro","Bezerros nascidos, mãe e data.","telaNascimentos()")}
       ${mod("☑","Eventos de Manejo","Marcar, medicar ou trocar de lote.","telaManejo()")}
-      ${mod("🗂","Histórico por Animal","Veja tudo que foi feito no animal, com datas.","irAba('animais')")}
       ${mod("🌱","Gestão do Pasto","Pastos, capim, área e situação.","telaGestaoPasto()")}
       ${mod("🔔","Avisos","Backup, pastos em descanso e alertas.","telaAvisos()")}
     </div>
@@ -376,6 +374,36 @@ async function telaPainel(){
 const mod=(ic,t,d,fn)=>`<div class="mod" onclick="${fn}"><div class="mic">${ic}</div>
   <div class="mt">${t}</div><div class="md">${d}</div><div class="chev">›</div></div>`;
 
+/* ---------- Helpers de datas e histórico ---------- */
+// Dias inteiros entre dois instantes (fim = agora, se não informado)
+const diasEntre=(ini,fim)=>{if(!ini)return 0;return Math.max(0,Math.floor(((fim||Date.now())-ini)/86400000));};
+// Timestamp -> "AAAA-MM-DD" no fuso local (compatível com fmt())
+const tsData=ts=>{const d=new Date(ts);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0');};
+// Lista com "Ver mais": mostra os 10 primeiros; o resto abre ao tocar.
+let _vmN=0;
+function verMais(itens,rotulo){
+  if(!itens||!itens.length)return"";
+  if(itens.length<=10)return itens.join("");
+  const id="vm"+(++_vmN);
+  return itens.slice(0,10).join("")
+    +`<div id="${id}" style="display:none">${itens.slice(10).join("")}</div>`
+    +`<button class="btn btn-sec" style="margin-top:10px" onclick="var e=document.getElementById('${id}');e.style.display='block';this.remove();">Ver mais ${itens.length-10}${rotulo?" "+rotulo:""}</button>`;
+}
+
+/* ---------- Histórico de situação do pasto ---------- */
+// Reconstrói os períodos (fechados + o período atual em aberto)
+function periodosPasto(pt){
+  const hist=(pt.historico||[]).map(p=>({...p}));
+  const aberto={status:pt.status||"Livre",inicio:pt.statusDesde||pt.criadoEm||Date.now(),fim:null,loteId:pt.loteId||null};
+  return [...hist,aberto];
+}
+// Soma de dias por situação
+function resumoPasto(pt){
+  const d={Descanso:0,Ocupado:0,Livre:0};
+  for(const p of periodosPasto(pt))d[p.status]=(d[p.status]||0)+diasEntre(p.inicio,p.fim);
+  return d;
+}
+
 async function telaNascimentos(){
   topoPagina();
   const {animais,lotes}=await tudo();
@@ -383,11 +411,11 @@ async function telaNascimentos(){
   const rotMae=id=>{const m=animais.find(a=>a.id===id);return m?rotulo(m):"—";};
   const nascidos=animais.filter(a=>a.nascidoNaPropriedade===true)
     .sort((x,y)=>(y.dataNascimento||"").localeCompare(x.dataNascimento||""));
-  let lst=nascidos.length?"":`<div class="vazio"><div class="big">🍼</div><b>Nenhum nascimento registrado</b><div class="meta">Toque em "Registrar nascimento" para incluir o primeiro bezerro.</div></div>`;
-  for(const a of nascidos)lst+=`<div class="card rt" onclick="verAnimal('${a.id}')">
+  const nascItens=nascidos.map(a=>`<div class="card rt" onclick="verAnimal('${a.id}')">
     <div class="ti">${esc(rotulo(a))} <span class="chip chip-id">${codAnimal(a)}</span></div>
     <div class="meta" style="margin-top:6px">${sexoChip(a.sexo)}<span class="chip chip-lote">▦ ${esc(nomeLote(a.loteAtualId))}</span></div>
-    <div class="meta" style="margin-top:6px">Mãe: <b>${a.maeId?esc(rotMae(a.maeId)):"—"}</b> · Nascimento: ${a.dataNascimento?fmt(a.dataNascimento):"—"}</div></div>`;
+    <div class="meta" style="margin-top:6px">Mãe: <b>${a.maeId?esc(rotMae(a.maeId)):"—"}</b> · Nascimento: ${a.dataNascimento?fmt(a.dataNascimento):"—"}</div></div>`);
+  let lst=nascidos.length?verMais(nascItens,"bezerro(s)"):`<div class="vazio"><div class="big">🍼</div><b>Nenhum nascimento registrado</b><div class="meta">Toque em "Registrar nascimento" para incluir o primeiro bezerro.</div></div>`;
   $t.innerHTML=`<button class="voltar" onclick="irAba('painel')">‹ Painel</button>
     <div class="sechead"><span class="sic">🍼</span><h2>Nascimentos</h2></div>
     <button class="btn" onclick="formNovoAnimal(null,true)">+ Registrar nascimento</button>
@@ -402,12 +430,15 @@ async function telaGestaoPasto(){
   const contaLote=lid=>animais.filter(a=>a.loteAtualId===lid&&a.status==="Ativo").length;
   const cardPasto=pt=>{
     const n=(pt.status==="Ocupado"&&pt.loteId)?contaLote(pt.loteId):0;
+    const r=resumoPasto(pt);
     return `<div class="card">
       <div class="row"><div class="ti">${esc(pt.nome)}</div>
         <div><button class="btn-fant" style="padding:4px 8px;color:var(--verde)" onclick="formEditarPasto('${pt.id}')">✎</button>
         <button class="btn-fant" style="padding:4px 8px;color:var(--perigo)" onclick="excluirPastoLista('${pt.id}')">✕</button></div></div>
       <div class="meta">${[pt.areaHa!=null?pt.areaHa+" ha":"",pt.tipoCapim].filter(Boolean).map(esc).join(" · ")||"—"}</div>
-      <div class="meta" style="margin-top:6px">${pastoStatusChip(pt)}${pt.status==="Ocupado"&&pt.loteId?`<span class="chip chip-lote">▦ ${esc(nomeLote(pt.loteId))} · ${n} 🐄</span>`:""}</div></div>`;
+      <div class="meta" style="margin-top:6px">${pastoStatusChip(pt)}${pt.status==="Ocupado"&&pt.loteId?`<span class="chip chip-lote">▦ ${esc(nomeLote(pt.loteId))} · ${n} 🐄</span>`:""}</div>
+      <div class="meta" style="margin-top:8px">🌿 ${r.Descanso} dia(s) reservado · 🐄 ${r.Ocupado} dia(s) ocupado</div>
+      <button class="btn-fant" style="padding:8px 0 0;color:var(--verde);font-weight:600" onclick="verPasto('${pt.id}')">📋 Ver histórico ›</button></div>`;
   };
   let lst="";
   for(const pr of propriedades){
@@ -427,6 +458,37 @@ async function excluirPastoLista(id){
   const pt=await get("pastos",id);
   if(!confirm(`Apagar o pasto "${pt?pt.nome:""}"?`))return;
   await del("pastos",id); telaGestaoPasto();
+}
+async function verPasto(id){
+  topoPagina();
+  const pt=await get("pastos",id);
+  if(!pt){telaGestaoPasto();return;}
+  const {propriedades,lotes}=await tudo();
+  const nomeLote=lid=>(lotes.find(l=>l.id===lid)||{}).nome||"—";
+  const nomeProp=pid=>(propriedades.find(p=>p.id===pid)||{}).nome||"Sem propriedade";
+  const r=resumoPasto(pt);
+  const rot={Descanso:["🌿","Em descanso"],Ocupado:["🐄","Ocupado"],Livre:["⬜","Livre"]};
+  // períodos do mais recente para o mais antigo
+  const per=periodosPasto(pt).sort((a,b)=>(b.inicio||0)-(a.inicio||0));
+  const itens=per.map(p=>{
+    const [ic,txt]=rot[p.status]||rot.Livre;
+    const fimTxt=p.fim?fmt(tsData(p.fim)):"agora";
+    const dias=diasEntre(p.inicio,p.fim);
+    const loteTxt=(p.status==="Ocupado"&&p.loteId)?`▦ ${esc(nomeLote(p.loteId))}`:"";
+    return `<div class="evt"><div class="tp">${ic} ${txt}</div>
+      <div class="dt">${fmt(tsData(p.inicio))} → ${fimTxt} · ${dias} dia(s)</div>
+      ${loteTxt?`<div class="de">${loteTxt}</div>`:""}</div>`;
+  });
+  $t.innerHTML=`<button class="voltar" onclick="telaGestaoPasto()">‹ Gestão do Pasto</button>
+    <div class="card"><div class="ti" style="font-size:19px">🌱 ${esc(pt.nome)}</div>
+      <div class="meta">${esc(nomeProp(pt.propriedadeId))}${[pt.areaHa!=null?" · "+pt.areaHa+" ha":"",pt.tipoCapim?" · "+esc(pt.tipoCapim):""].join("")}</div>
+      <div class="meta" style="margin-top:8px">${pastoStatusChip(pt)}${pt.status==="Ocupado"&&pt.loteId?`<span class="chip chip-lote">▦ ${esc(nomeLote(pt.loteId))}</span>`:""}</div></div>
+    <div class="grid">
+      <div class="card" style="text-align:center"><div style="font-size:30px;font-weight:800;color:var(--verde)">${r.Descanso}</div><div class="meta">dia(s) reservado<br>(em descanso)</div></div>
+      <div class="card" style="text-align:center"><div style="font-size:30px;font-weight:800;color:var(--verde-esc)">${r.Ocupado}</div><div class="meta">dia(s) ocupado</div></div>
+    </div>
+    <div class="h3">Histórico de situações</div>
+    ${itens.length?verMais(itens,"registro(s)"):`<div class="meta">Sem mudanças de situação ainda.</div>`}`;
 }
 
 async function telaAvisos(){
@@ -570,12 +632,12 @@ async function verAnimal(id){
     .sort((x,y)=>y.data.localeCompare(x.data)||y.criadoEm-x.criadoEm);
   const {medicamentos}=await tudo();
   const nomeMed=id=>{const m=medicamentos.find(x=>x.id===id);return m?m.nome:"";};
-  let tl=eventos.length?"":`<div class="meta">Sem eventos ainda.</div>`;
-  for(const e of eventos){
+  const evItens=eventos.map(e=>{
     const quando=fmt(e.data)+(e.hora?` ${e.hora}`:"");
     const med=e.medicamentoId?`${esc(nomeMed(e.medicamentoId))}${e.via?` (${esc(e.via)})`:""}${e.dose?` · ${esc(e.dose)}`:""}`:"";
-    tl+=`<div class="evt"><div class="tp">${esc(e.tipo)}</div><div class="dt">${quando}</div>${med?`<div class="de">${med}</div>`:""}${e.detalhes?`<div class="de">${esc(e.detalhes)}</div>`:""}</div>`;
-  }
+    return `<div class="evt"><div class="tp">${esc(e.tipo)}</div><div class="dt">${quando}</div>${med?`<div class="de">${med}</div>`:""}${e.detalhes?`<div class="de">${esc(e.detalhes)}</div>`:""}</div>`;
+  });
+  let tl=eventos.length?verMais(evItens,"evento(s)"):`<div class="meta">Sem eventos ainda.</div>`;
   $t.innerHTML=`<button class="voltar" onclick="voltar()">‹ Voltar</button>
     <div class="card"><div class="ti" style="font-size:20px">${esc(rotulo(a))}${a.brinco&&a.nome?` · ${esc(a.nome)}`:""} <span class="chip chip-id">${codAnimal(a)}</span></div>
       <div class="meta" style="margin-top:6px">
@@ -729,13 +791,27 @@ function menuAdicionar(){abrir(`<h2>Adicionar</h2>
   <div class="sheet-item rt" onclick="fechar();formNovaPropriedade()"><span class="si">🏡</span>Nova propriedade</div>
   <button class="btn btn-sec" style="margin-top:14px" onclick="fechar()">Cancelar</button>`);}
 function menuConfig(){abrir(`<h2>Menu</h2>
+  <div class="sheet-item rt" onclick="menuOperacional()"><span class="si">🐄</span>Gestão operacional<span class="chev" style="margin-left:auto;color:var(--verde)">›</span></div>
+  <div class="sheet-item rt" onclick="menuFinanceiro()"><span class="si">💰</span>Gestão financeira<span class="chev" style="margin-left:auto;color:var(--verde)">›</span></div>
+  <div class="sheet-item rt" onclick="fechar();irAba('perfil')"><span class="si">💾</span>Backup e Perfil</div>
+  <div class="sheet-item rt" onclick="sobreApp()"><span class="si">ℹ️</span>Sobre o app</div>
+  <button class="btn btn-sec" style="margin-top:14px" onclick="fechar()">Fechar</button>`);}
+
+function menuOperacional(){abrir(`<h2>Gestão operacional</h2>
+  <div class="sheet-item rt" onclick="fechar();irAba('painel')"><span class="si">⌂</span>Painel</div>
   <div class="sheet-item rt" onclick="fechar();telaManejo()"><span class="si">☑</span>Manejo — marcar, medicar, trocar de lote</div>
+  <div class="sheet-item rt" onclick="fechar();telaGestaoPasto()"><span class="si">🌱</span>Gestão do pasto</div>
+  <div class="sheet-item rt" onclick="fechar();telaNascimentos()"><span class="si">🍼</span>Nascimentos</div>
+  <div class="sheet-item rt" onclick="fechar();telaAvisos()"><span class="si">🔔</span>Avisos</div>
   <div class="sheet-item rt" onclick="fechar();gerenciarMedicamentos()"><span class="si">💊</span>Medicamentos</div>
   <div class="sheet-item rt" onclick="fechar();gerenciarMarcas()"><span class="si">🏷</span>Marcas / donos</div>
   <div class="sheet-item rt" onclick="fechar();formNovaPropriedade()"><span class="si">🏡</span>Nova propriedade</div>
-  <div class="sheet-item rt" onclick="fechar();irAba('perfil')"><span class="si">💾</span>Backup e Perfil</div>
-  <div class="sheet-item rt" onclick="fechar();sobreApp()"><span class="si">ℹ️</span>Sobre o app</div>
-  <button class="btn btn-sec" style="margin-top:14px" onclick="fechar()">Fechar</button>`);}
+  <button class="btn btn-sec" style="margin-top:14px" onclick="menuConfig()">‹ Voltar</button>`);}
+
+function menuFinanceiro(){abrir(`<h2>Gestão financeira</h2>
+  <div class="vazio" style="padding:26px 10px"><div class="big">💰</div><b>Em desenvolvimento</b>
+    <div class="meta" style="margin-top:6px">Este módulo será construído em breve — controle de custos, vendas, receitas e resultado do rebanho.</div></div>
+  <button class="btn btn-sec" style="margin-top:4px" onclick="menuConfig()">‹ Voltar</button>`);}
 function sobreApp(){abrir(`<h2>Gestão do Rebanho</h2>
   <div class="meta">Controle de rebanho por lote — vacinação, manejo, nascimentos, saídas e histórico por animal.</div>
   <div class="meta" style="margin-top:8px">Funciona offline. Os dados ficam guardados neste aparelho — lembre de fazer backup em Perfil.</div>
@@ -791,7 +867,8 @@ async function salvarPasto(){
   const nome=val("pt_nome");if(!nome)return alert("Dê um nome ao pasto.");
   const status=val("pt_status");
   await put("pastos",{id:uid(),propriedadeId:val("pt_prop"),nome,areaHa:numBR("pt_area"),
-    tipoCapim:val("pt_capim"),status,loteId:status==="Ocupado"?(val("pt_lote")||null):null,criadoEm:Date.now()});
+    tipoCapim:val("pt_capim"),status,loteId:status==="Ocupado"?(val("pt_lote")||null):null,
+    criadoEm:Date.now(),statusDesde:Date.now(),historico:[]});
   fechar();render();
 }
 async function formEditarPasto(id){
@@ -817,8 +894,18 @@ async function formEditarPasto(id){
 async function salvarEdicaoPasto(id){
   const nome=val("pe_nome");if(!nome)return alert("Dê um nome ao pasto.");
   const pt=await get("pastos",id);
+  const novoStatus=val("pe_status");
+  const novoLote=novoStatus==="Ocupado"?(val("pe_lote")||null):null;
+  // garante os campos de histórico em pastos antigos
+  if(!pt.historico)pt.historico=[];
+  if(pt.statusDesde==null)pt.statusDesde=pt.criadoEm||Date.now();
+  // se a situação mudou, fecha o período atual e abre um novo
+  if(novoStatus!==(pt.status||"Livre")){
+    pt.historico.push({status:pt.status||"Livre",inicio:pt.statusDesde,fim:Date.now(),loteId:pt.loteId||null});
+    pt.statusDesde=Date.now();
+  }
   pt.propriedadeId=val("pe_prop");pt.nome=nome;pt.areaHa=numBR("pe_area");pt.tipoCapim=val("pe_capim");
-  pt.status=val("pe_status");pt.loteId=pt.status==="Ocupado"?(val("pe_lote")||null):null;
+  pt.status=novoStatus;pt.loteId=novoLote;
   await put("pastos",pt);fechar();render();
 }
 async function excluirPasto(id){
@@ -1043,7 +1130,7 @@ async function telaManejo(){
   const sec=(tipo,icone,titulo)=>{
     const grupos=gruposManejo(tipo);
     if(!grupos.length)return `<div class="manejo-sec"><div class="manejo-sec-head"><div class="manejo-sec-title">${icone} ${titulo}</div><span class="manejo-count">0</span></div><div class="meta">Nenhum registro ainda.</div></div>`;
-    const regs=grupos.map(g=>{
+    const regsArr=grupos.map(g=>{
       const nomes=g.animalIds.map(nomeAnimal);
       const quem=nomes.length<=3?nomes.map(esc).join(", "):`${nomes.slice(0,3).map(esc).join(", ")} +${nomes.length-3}`;
       let tituloReg="";
@@ -1059,8 +1146,8 @@ async function telaManejo(){
       }
       const quando=`${fmt(g.data)}${g.hora?` · ${esc(g.hora)}`:""}`;
       return `<div class="manejo-reg"><div class="mr-top"><div class="mr-title">${tituloReg}</div><div class="mr-date">${quando}</div></div><div class="mr-meta">${quem}${detalhe?`<br>${detalhe}`:""}</div></div>`;
-    }).join("");
-    return `<div class="manejo-sec"><div class="manejo-sec-head"><div class="manejo-sec-title">${icone} ${titulo}</div><span class="manejo-count">${grupos.length}</span></div>${regs}</div>`;
+    });
+    return `<div class="manejo-sec"><div class="manejo-sec-head"><div class="manejo-sec-title">${icone} ${titulo}</div><span class="manejo-count">${grupos.length}</span></div>${verMais(regsArr,"registro(s)")}</div>`;
   };
   $t.innerHTML=`<button class="voltar" onclick="irAba('painel')">‹ Painel</button>
     <div class="sechead"><span class="sic">☑</span><h2>Manejo</h2></div>
