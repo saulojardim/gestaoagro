@@ -30,9 +30,11 @@
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;}
+  html{background:var(--fundo);min-height:100%;}
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     background:var(--fundo);color:var(--texto);font-size:16px;line-height:1.4;
+    min-height:100vh;
     padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));
     -webkit-font-smoothing:antialiased;
   }
@@ -154,7 +156,7 @@
 
   /* ---------- Nav ---------- */
   nav{position:fixed;bottom:0;left:0;right:0;height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);
-    background:#fff;border-top:1px solid var(--linha);display:flex;z-index:30;}
+    background:#fff;border-top:1px solid var(--linha);display:flex;z-index:30;box-shadow:0 -2px 10px rgba(20,40,25,.05);}
   nav button{flex:1;background:none;color:var(--muted);font-size:11px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;}
   nav button .ic{font-size:21px;line-height:1;} nav button.ativo{color:var(--verde);}
   .tile img{width:46px;height:46px;object-fit:contain;display:block;}
@@ -271,13 +273,21 @@ async function telaPainel(){
   let pastoResumo="";
   if(pastos.length){
     const contaLote=lid=>ativos.filter(a=>a.loteAtualId===lid).length;
-    const rows=pastos.map(pt=>{
+    const linhaPasto=pt=>{
       const n=(pt.status==="Ocupado"&&pt.loteId)?contaLote(pt.loteId):0;
       return `<div class="row" style="padding:8px 0;border-top:1px solid var(--linha)">
         <div class="ti" style="font-size:15px">${esc(pt.nome)}</div>
         <div>${pt.status==="Ocupado"?`<span class="badge">${n} 🐄</span>`:pastoStatusChip(pt)}</div></div>`;
-    }).join("");
-    pastoResumo=`<div class="card"><div class="ti" style="font-size:16px">🌱 Animais por pasto</div>${rows}</div>`;
+    };
+    let grupos="";
+    for(const pr of propriedades){
+      const meus=pastos.filter(pt=>pt.propriedadeId===pr.id);
+      if(!meus.length)continue;
+      grupos+=`<div class="meta" style="font-weight:700;color:var(--verde-esc);margin:12px 0 2px">${esc(pr.nome)}</div>${meus.map(linhaPasto).join("")}`;
+    }
+    const orfaos=pastos.filter(pt=>!propriedades.find(pr=>pr.id===pt.propriedadeId));
+    if(orfaos.length)grupos+=`<div class="meta" style="font-weight:700;margin:12px 0 2px">Sem propriedade</div>${orfaos.map(linhaPasto).join("")}`;
+    pastoResumo=`<div class="card"><div class="ti" style="font-size:16px">🌱 Animais por pasto</div>${grupos}</div>`;
   }
 
   const contaProp=pid=>ativos.filter(a=>propDoAnimal(a,lotes)===pid);
@@ -356,19 +366,26 @@ async function telaNascimentos(){
 
 async function telaGestaoPasto(){
   const {propriedades,lotes,animais,pastos}=await tudo();
-  const nomeProp=id=>(propriedades.find(p=>p.id===id)||{}).nome||"—";
   const nomeLote=id=>(lotes.find(l=>l.id===id)||{}).nome||"—";
   const contaLote=lid=>animais.filter(a=>a.loteAtualId===lid&&a.status==="Ativo").length;
-  let lst=pastos.length?"":`<div class="vazio"><div class="big">🌱</div><b>Nenhum pasto cadastrado</b><div class="meta">Toque em "Novo pasto" para começar.</div></div>`;
-  for(const pt of pastos){
+  const cardPasto=pt=>{
     const n=(pt.status==="Ocupado"&&pt.loteId)?contaLote(pt.loteId):0;
-    lst+=`<div class="card">
+    return `<div class="card">
       <div class="row"><div class="ti">${esc(pt.nome)}</div>
         <div><button class="btn-fant" style="padding:4px 8px;color:var(--verde)" onclick="formEditarPasto('${pt.id}')">✎</button>
         <button class="btn-fant" style="padding:4px 8px;color:var(--perigo)" onclick="excluirPastoLista('${pt.id}')">✕</button></div></div>
-      <div class="meta">${esc(nomeProp(pt.propriedadeId))}${pt.areaHa!=null?` · ${pt.areaHa} ha`:""}${pt.tipoCapim?` · ${esc(pt.tipoCapim)}`:""}</div>
+      <div class="meta">${[pt.areaHa!=null?pt.areaHa+" ha":"",pt.tipoCapim].filter(Boolean).map(esc).join(" · ")||"—"}</div>
       <div class="meta" style="margin-top:6px">${pastoStatusChip(pt)}${pt.status==="Ocupado"&&pt.loteId?`<span class="chip chip-lote">▦ ${esc(nomeLote(pt.loteId))} · ${n} 🐄</span>`:""}</div></div>`;
+  };
+  let lst="";
+  for(const pr of propriedades){
+    const meus=pastos.filter(pt=>pt.propriedadeId===pr.id);
+    if(!meus.length)continue;
+    lst+=`<div class="h3">${esc(pr.nome)}</div>`+meus.map(cardPasto).join("");
   }
+  const orfaos=pastos.filter(pt=>!propriedades.find(pr=>pr.id===pt.propriedadeId));
+  if(orfaos.length)lst+=`<div class="h3">Sem propriedade</div>`+orfaos.map(cardPasto).join("");
+  if(!pastos.length)lst=`<div class="vazio"><div class="big">🌱</div><b>Nenhum pasto cadastrado</b><div class="meta">Toque em "Novo pasto" para começar.</div></div>`;
   $t.innerHTML=`<button class="voltar" onclick="irAba('painel')">‹ Painel</button>
     <div class="sechead"><span class="sic">🌱</span><h2>Gestão do Pasto</h2></div>
     <button class="btn" onclick="formNovoPasto()">+ Novo pasto</button>
