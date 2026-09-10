@@ -142,6 +142,8 @@
   .avatar img{width:100%;height:100%;object-fit:cover;}
   .avatar-wrap{position:relative;width:64px;height:64px;flex-shrink:0;cursor:pointer;}
   .avatar-cam{position:absolute;right:-3px;bottom:-3px;width:25px;height:25px;border-radius:50%;background:var(--verde);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;border:2px solid #fff;}
+  .an-thumb{border-radius:10px;background:var(--verde-lite);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:18px;}
+  .an-thumb img{width:100%;height:100%;object-fit:cover;}
   .voltar{background:none;color:var(--verde-esc);font-weight:600;font-size:15px;padding:0;margin:2px 0 12px;}
   .h3{margin:18px 4px 10px;font-size:15px;color:var(--muted);font-weight:700;}
   .evt{border-left:3px solid var(--verde);padding:2px 0 12px 12px;margin-left:4px;}
@@ -278,7 +280,7 @@ async function vacinarLote(loteId,vac,data,hora){
 }
 
 /* ======================= NAV ======================= */
-const $t=document.getElementById("tela"); let aba="painel"; let _perfilFoto=""; let _lembreteOculto=false;
+const $t=document.getElementById("tela"); let aba="painel"; let _perfilFoto=""; let _animalFoto=""; let _lembreteOculto=false;
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
   aba=b.dataset.aba;
   document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("ativo",x===b));
@@ -617,9 +619,14 @@ function linhaAnimal(a,nomeLote,mostraLote){
   const st=a.status!=="Ativo"?`<span class="chip chip-off">${a.status}</span>`:"";
   const idchip=(a.brinco||a.nome)?`<span class="chip chip-id">${codAnimal(a)}</span>`:"";
   return `<div class="card rt" data-b="${esc(((a.brinco||"")+" "+(a.nome||"")+" "+codAnimal(a)).toLowerCase())}" onclick="verAnimal('${a.id}')">
-    <div class="ti">${esc(rotulo(a))}${a.brinco&&a.nome?` · ${esc(a.nome)}`:""}</div>
-    <div class="meta" style="margin-top:6px">${sx}${st}${idchip}${mostraLote?`<span class="chip chip-lote">▦ ${esc(nomeLote)}</span>`:""}
-      ${a._marcaSigla?`<span class="chip chip-marca">${esc(a._marcaSigla)}</span>`:""}</div></div>`;
+    <div style="display:flex;gap:12px;align-items:center">
+      ${animalThumb(a,46)}
+      <div style="flex:1;min-width:0">
+        <div class="ti">${esc(rotulo(a))}${a.brinco&&a.nome?` · ${esc(a.nome)}`:""}</div>
+        <div class="meta" style="margin-top:6px">${sx}${st}${idchip}${mostraLote?`<span class="chip chip-lote">▦ ${esc(nomeLote)}</span>`:""}
+          ${a._marcaSigla?`<span class="chip chip-marca">${esc(a._marcaSigla)}</span>`:""}</div>
+      </div>
+    </div></div>`;
 }
 async function verAnimal(id){
   topoPagina();
@@ -639,12 +646,18 @@ async function verAnimal(id){
   });
   let tl=eventos.length?verMais(evItens,"evento(s)"):`<div class="meta">Sem eventos ainda.</div>`;
   $t.innerHTML=`<button class="voltar" onclick="voltar()">‹ Voltar</button>
-    <div class="card"><div class="ti" style="font-size:20px">${esc(rotulo(a))}${a.brinco&&a.nome?` · ${esc(a.nome)}`:""} <span class="chip chip-id">${codAnimal(a)}</span></div>
-      <div class="meta" style="margin-top:6px">
-        ${sexoChip(a.sexo)}
-        <span class="chip chip-lote">▦ ${esc(nomeLote)}</span>
-        ${marca?`<span class="chip chip-marca">${esc(marca.sigla)}</span>`:""}
-        ${a.status!=="Ativo"?`<span class="chip chip-off">${a.status}</span>`:""}</div>
+    <div class="card">
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div class="an-thumb" style="width:84px;height:84px;font-size:34px;cursor:pointer" onclick="formEditarAnimal('${id}')">${a.foto?`<img src="${esc(a.foto)}" alt="">`:"🐄"}</div>
+        <div style="flex:1;min-width:0">
+          <div class="ti" style="font-size:20px">${esc(rotulo(a))}${a.brinco&&a.nome?` · ${esc(a.nome)}`:""} <span class="chip chip-id">${codAnimal(a)}</span></div>
+          <div class="meta" style="margin-top:6px">
+            ${sexoChip(a.sexo)}
+            <span class="chip chip-lote">▦ ${esc(nomeLote)}</span>
+            ${marca?`<span class="chip chip-marca">${esc(marca.sigla)}</span>`:""}
+            ${a.status!=="Ativo"?`<span class="chip chip-off">${a.status}</span>`:""}</div>
+        </div>
+      </div>
       <div class="meta" style="margin-top:8px">
         ${a.nascidoNaPropriedade?`Origem: nascido na propriedade<br>`:(a.nascidoNaPropriedade===false?`Origem: comprado${a.pesoCompraKg?` — ${a.pesoCompraKg} kg vivo`:""}<br>`:"")}
         ${a.dataNascimento?`Nascimento: ${fmt(a.dataNascimento)}<br>`:""}
@@ -726,6 +739,10 @@ function lerFotoRedimensionada(file,cb){
 }
 function pickFoto(input){const f=input.files[0];if(!f)return;
   lerFotoRedimensionada(f,d=>{_perfilFoto=d;document.getElementById("pf_avatar").innerHTML=`<img src="${d}" alt="">`;});}
+function pickFotoAnimal(input){const f=input.files[0];if(!f)return;
+  lerFotoRedimensionada(f,d=>{_animalFoto=d;const el=document.getElementById("an_avatar");if(el)el.innerHTML=`<img src="${d}" alt="">`;});}
+// Miniatura do animal para listas e ficha (foto ou 🐄)
+const animalThumb=(a,size)=>`<div class="an-thumb" style="width:${size}px;height:${size}px">${a.foto?`<img src="${esc(a.foto)}" alt="">`:"🐄"}</div>`;
 async function pickFotoPropriedade(pid,input){
   const f=input.files[0];if(!f)return;
   lerFotoRedimensionada(f,async d=>{
@@ -905,6 +922,7 @@ async function excluirPasto(id){
 }
 
 async function formNovoAnimal(loteFixo,nascimento){
+  _animalFoto="";
   const {propriedades,marcas,lotes,animais}=await tudo();
   if(lotes.length===0){fechar();return alert("Crie um lote primeiro.");}
   const optLotes=lotes.map(l=>{const p=propriedades.find(x=>x.id===l.propriedadeId);
@@ -922,6 +940,14 @@ async function formNovoAnimal(loteFixo,nascimento){
       <option value="nao" selected>Não — comprado</option>
     </select>`;
   abrir(`<h2>${nascimento?"Registrar nascimento":"Novo animal"}</h2>
+    <div style="display:flex;justify-content:center;margin:6px 0 10px">
+      <div class="avatar-wrap" style="width:74px;height:74px" onclick="document.getElementById('an_file').click()">
+        <div class="avatar" id="an_avatar" style="width:74px;height:74px;border-radius:14px;font-size:30px">${_animalFoto?`<img src="${_animalFoto}" alt="">`:"🐄"}</div>
+        <div class="avatar-cam">📷</div>
+      </div>
+    </div>
+    <input type="file" id="an_file" accept="image/*" style="display:none" onchange="pickFotoAnimal(this)">
+    <div class="meta" style="text-align:center;margin:-4px 0 10px">Foto do animal (opcional)</div>
     <label>Brinco / identificação</label><input id="a_brinco" placeholder="Opcional">
     <label>Nome (opcional)</label><input id="a_nome">
     <label>Sexo *</label><select id="a_sexo"><option value="F">Fêmea</option><option value="M">Macho</option></select>
@@ -951,7 +977,7 @@ async function salvarAnimal(nascimento){
     nascidoNaPropriedade:!!nasceu,
     dataNascimento: nasceu ? val("a_nasc") : "",
     pesoCompraKg: nasceu ? null : numBR("a_pesocompra"),
-    maeId,marcaId:val("a_marca")||null,loteAtualId:val("a_lote"),status:"Ativo",criadoEm:Date.now()};
+    maeId,marcaId:val("a_marca")||null,loteAtualId:val("a_lote"),status:"Ativo",foto:_animalFoto||"",criadoEm:Date.now()};
   await put("animais",a);
   if(maeId){const m=await get("animais",maeId);await registrarEvento(a.id,"Nascimento",a.dataNascimento,`Filho(a) de ${m?rotulo(m):"—"}`);}
   fechar();render();
@@ -1028,6 +1054,7 @@ async function salvarSaida(animalId){
 /* ---------- EDITAR DADOS DO ANIMAL ---------- */
 async function formEditarAnimal(id){
   const a=await get("animais",id);
+  _animalFoto=a.foto||"";
   const {propriedades,marcas,lotes,animais}=await tudo();
   const optLotes=lotes.map(l=>{const p=propriedades.find(x=>x.id===l.propriedadeId);
     return`<option value="${l.id}" ${l.id===a.loteAtualId?"selected":""}>${esc(l.nome)}${p?` — ${esc(p.nome)}`:""}</option>`;}).join("");
@@ -1038,6 +1065,14 @@ async function formEditarAnimal(id){
     marcas.map(m=>`<option value="${m.id}" ${m.id===a.marcaId?"selected":""}>${esc(m.sigla)}${m.nome?` · ${esc(m.nome)}`:""}</option>`).join("");
   const nasceu = a.nascidoNaPropriedade===true;
   abrir(`<h2>Editar dados ${codAnimal(a)}</h2>
+    <div style="display:flex;justify-content:center;margin:6px 0 10px">
+      <div class="avatar-wrap" style="width:74px;height:74px" onclick="document.getElementById('an_file').click()">
+        <div class="avatar" id="an_avatar" style="width:74px;height:74px;border-radius:14px;font-size:30px">${_animalFoto?`<img src="${_animalFoto}" alt="">`:"🐄"}</div>
+        <div class="avatar-cam">📷</div>
+      </div>
+    </div>
+    <input type="file" id="an_file" accept="image/*" style="display:none" onchange="pickFotoAnimal(this)">
+    <div class="meta" style="text-align:center;margin:-4px 0 10px">Toque para ${_animalFoto?"trocar":"adicionar"} a foto</div>
     <label>Brinco / identificação</label><input id="e_brinco" value="${esc(a.brinco||"")}" placeholder="Opcional">
     <label>Nome (opcional)</label><input id="e_nome" value="${esc(a.nome||"")}">
     <label>Sexo *</label><select id="e_sexo">
@@ -1074,6 +1109,7 @@ async function salvarEdicaoAnimal(id){
   a.pesoCompraKg = nasceu ? null : numBR("e_pesocompra");
   a.maeId = nasceu ? (val("e_mae")||null) : null;
   a.marcaId = val("e_marca")||null;
+  a.foto = _animalFoto||"";
   const novoLote=val("e_lote");
   const loteMudou = novoLote && novoLote!==a.loteAtualId;
   await put("animais",a);
