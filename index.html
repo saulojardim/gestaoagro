@@ -92,7 +92,15 @@
   .prop:active{background:#fafbfa;}
   .prop .top{display:flex;gap:12px;align-items:center;}
   .prop .thumb{width:80px;height:64px;border-radius:12px;flex-shrink:0;
-    background:linear-gradient(160deg,#cfe6d4,#a9d3b3);display:flex;align-items:center;justify-content:center;color:#2c6b41;}
+    background:linear-gradient(160deg,#cfe6d4,#a9d3b3);display:flex;align-items:center;justify-content:center;color:#2c6b41;overflow:hidden;}
+  .prop .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .prop-foto-wrap{position:relative;width:92px;height:78px;flex-shrink:0;cursor:pointer;}
+  .prop-foto{width:92px;height:78px;border-radius:14px;background:linear-gradient(160deg,#cfe6d4,#a9d3b3);
+    display:flex;align-items:center;justify-content:center;color:#2c6b41;font-size:30px;overflow:hidden;}
+  .prop-foto img{width:100%;height:100%;object-fit:cover;display:block;}
+  .prop-foto-cam{position:absolute;right:-5px;bottom:-5px;width:28px;height:28px;border-radius:50%;
+    background:var(--verde);color:#fff;border:2px solid #fff;display:flex;align-items:center;justify-content:center;
+    font-size:13px;box-shadow:var(--sombra);}
   .prop .nome{font-size:18px;font-weight:700;color:var(--verde-esc);}
   .prop .loc{font-size:13px;color:var(--muted);margin-top:2px;}
   .prop .chev{color:var(--muted);font-size:20px;}
@@ -312,7 +320,7 @@ async function telaPainel(){
       let cols=marcas.map(m=>`<div class="m"><div class="ms">${esc(m.sigla)}</div><div class="mn">${contaMarca(arr,m.id)}</div></div>`).join("");
       props+=`<div class="prop" onclick="verPropriedade('${p.id}')">
         <div class="top">
-          <div class="thumb">🌳</div>
+          <div class="thumb">${p.foto?`<img src="${p.foto}" alt="Foto de ${esc(p.nome)}">`:"🌳"}</div>
           <div style="flex:1"><div class="nome">${esc(p.nome)}</div>
             <div class="loc">📍 ${esc(p.local||"")}</div></div>
           <div class="chev">›</div>
@@ -439,8 +447,21 @@ async function verPropriedade(pid){
     <div class="meta" style="margin-top:2px">${[pt.areaHa!=null?pt.areaHa+" ha":"",pt.tipoCapim].filter(Boolean).map(esc).join(" · ")||"—"}</div>
     <div class="meta" style="margin-top:6px">${pastoStatusChip(pt)}${pt.status==="Ocupado"&&pt.loteId?`<span class="chip chip-lote">▦ ${esc(nomeLote(pt.loteId))}</span>`:""}</div></div>`;
   $t.innerHTML=`<button class="voltar" onclick="irAba('painel')">‹ Painel</button>
-    <div class="card"><div class="ti" style="font-size:20px">${esc(p.nome)}</div>
-      <div class="meta">📍 ${esc(p.local||"")}</div></div>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div class="prop-foto-wrap" onclick="document.getElementById('prop_foto_${pid}').click()">
+          <div class="prop-foto">${p.foto?`<img src="${p.foto}" alt="Foto de ${esc(p.nome)}">`:"🌳"}</div>
+          <div class="prop-foto-cam">📷</div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="ti" style="font-size:20px">${esc(p.nome)}</div>
+          <div class="meta">📍 ${esc(p.local||"")}</div>
+          <div class="meta" style="margin-top:5px;color:var(--verde)">Toque na foto para alterar</div>
+        </div>
+      </div>
+      <input type="file" id="prop_foto_${pid}" accept="image/*" style="display:none"
+        onchange="pickFotoPropriedade('${pid}',this)">
+    </div>
     <button class="btn btn-sec" onclick="formNovoLote('${pid}')">+ Novo lote nesta propriedade</button>
     <div class="h3">Lotes</div>${lst}
     <button class="btn btn-sec" style="margin-top:10px" onclick="formNovoPasto('${pid}')">+ Novo pasto</button>
@@ -614,6 +635,15 @@ function lerFotoRedimensionada(file,cb){
 }
 function pickFoto(input){const f=input.files[0];if(!f)return;
   lerFotoRedimensionada(f,d=>{_perfilFoto=d;document.getElementById("pf_avatar").innerHTML=`<img src="${d}" alt="">`;});}
+async function pickFotoPropriedade(pid,input){
+  const f=input.files[0];if(!f)return;
+  lerFotoRedimensionada(f,async d=>{
+    const p=await get("propriedades",pid);if(!p)return;
+    p.foto=d;
+    await put("propriedades",p);
+    verPropriedade(pid);
+  });
+}
 async function formPerfil(){
   const p=(await get("perfil","perfil"))||{};
   _perfilFoto=p.foto||"";
