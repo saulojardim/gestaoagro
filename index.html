@@ -284,7 +284,7 @@ async function vacinarLote(loteId,vac,data,hora){
 }
 
 /* ======================= NAV ======================= */
-const $t=document.getElementById("tela"); let aba="painel"; let _perfilFoto=""; let _animalFoto=""; let _lembreteOculto=false;
+const $t=document.getElementById("tela"); let aba="painel"; let _perfilFoto=""; let _animalFoto=""; let _editPastos=false; let _lembreteOculto=false;
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
   aba=b.dataset.aba;
   document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("ativo",x===b));
@@ -409,6 +409,11 @@ function resumoPasto(pt){
   for(const p of periodosPasto(pt))d[p.status]=(d[p.status]||0)+diasEntre(p.inicio,p.fim);
   return d;
 }
+// Outros eventos registráveis no pasto (herbicida, roçada, etc.)
+const PASTO_EVENTOS=["Herbicida","Roçada","Adubação","Calagem","Reforma / Plantio","Limpeza de cerca","Análise de solo","Outro"];
+const ICONE_PASTO_EV={"Herbicida":"🧪","Roçada":"🌾","Adubação":"🌿","Calagem":"⚪","Reforma / Plantio":"🌱","Limpeza de cerca":"🚧","Análise de solo":"🔬","Outro":"📌"};
+// "AAAA-MM-DD" -> timestamp local ao meio-dia (evita erro de fuso)
+const dataParaTs=s=>{if(!s)return null;const[a,m,d]=s.split("-").map(Number);return new Date(a,(m||1)-1,d||1,12,0,0).getTime();};
 
 async function telaNascimentos(){
   topoPagina();
@@ -437,10 +442,10 @@ async function telaGestaoPasto(){
   const cardPasto=pt=>{
     const n=(pt.status==="Ocupado"&&pt.loteId)?contaLote(pt.loteId):0;
     const r=resumoPasto(pt);
+    const ctrl=_editPastos?`<div style="white-space:nowrap"><button class="btn-fant" style="padding:4px 8px;color:var(--verde)" onclick="formEditarPasto('${pt.id}')">✎</button>
+        <button class="btn-fant" style="padding:4px 8px;color:var(--perigo)" onclick="excluirPastoLista('${pt.id}')">✕</button></div>`:"";
     return `<div class="card">
-      <div class="row"><div class="ti">${esc(pt.nome)}</div>
-        <div><button class="btn-fant" style="padding:4px 8px;color:var(--verde)" onclick="formEditarPasto('${pt.id}')">✎</button>
-        <button class="btn-fant" style="padding:4px 8px;color:var(--perigo)" onclick="excluirPastoLista('${pt.id}')">✕</button></div></div>
+      <div class="row"><div class="ti">${esc(pt.nome)}</div>${ctrl}</div>
       <div class="meta">${[pt.areaHa!=null?pt.areaHa+" ha":"",pt.tipoCapim].filter(Boolean).map(esc).join(" · ")||"—"}</div>
       <div class="meta" style="margin-top:6px">${pastoStatusChip(pt)}${pt.status==="Ocupado"&&pt.loteId?`<span class="chip chip-lote">▦ ${esc(nomeLote(pt.loteId))} · ${n} 🐄</span>`:""}</div>
       <div class="meta" style="margin-top:8px">🌿 ${r.Descanso} dia(s) reservado · 🐄 ${r.Ocupado} dia(s) ocupado</div>
@@ -455,9 +460,11 @@ async function telaGestaoPasto(){
   const orfaos=pastos.filter(pt=>!propriedades.find(pr=>pr.id===pt.propriedadeId));
   if(orfaos.length)lst+=`<div class="h3">Sem propriedade</div>`+orfaos.map(cardPasto).join("");
   if(!pastos.length)lst=`<div class="vazio"><div class="big">🌱</div><b>Nenhum pasto cadastrado</b><div class="meta">Toque em "Novo pasto" para começar.</div></div>`;
-  $t.innerHTML=`<button class="voltar" onclick="irAba('painel')">‹ Painel</button>
+  $t.innerHTML=`<button class="voltar" onclick="_editPastos=false;irAba('painel')">‹ Painel</button>
     <div class="sechead"><span class="sic">🌱</span><h2>Gestão do Pasto</h2></div>
-    <button class="btn" onclick="formNovoPasto()">+ Novo pasto</button>
+    <div class="lado"><button class="btn" onclick="formNovoPasto()">+ Novo pasto</button>
+      ${pastos.length?`<button class="btn btn-sec" onclick="_editPastos=!_editPastos;telaGestaoPasto()">${_editPastos?"✓ Concluir":"✎ Editar"}</button>`:""}</div>
+    ${_editPastos?`<div class="meta" style="margin:2px 4px 6px">Modo edição ligado — toque em ✎ para editar ou ✕ para excluir um pasto.</div>`:""}
     ${lst}`;
 }
 async function excluirPastoLista(id){
@@ -474,16 +481,29 @@ async function verPasto(id){
   const nomeProp=pid=>(propriedades.find(p=>p.id===pid)||{}).nome||"Sem propriedade";
   const r=resumoPasto(pt);
   const rot={Descanso:["🌿","Em descanso"],Ocupado:["🐄","Ocupado"],Livre:["⬜","Livre"]};
-  // períodos do mais recente para o mais antigo
-  const per=periodosPasto(pt).sort((a,b)=>(b.inicio||0)-(a.inicio||0));
-  const itens=per.map(p=>{
-    const [ic,txt]=rot[p.status]||rot.Livre;
-    const fimTxt=p.fim?fmt(tsData(p.fim)):"agora";
-    const dias=diasEntre(p.inicio,p.fim);
-    const loteTxt=(p.status==="Ocupado"&&p.loteId)?`▦ ${esc(nomeLote(p.loteId))}`:"";
-    return `<div class="evt"><div class="tp">${ic} ${txt}</div>
-      <div class="dt">${fmt(tsData(p.inicio))} → ${fimTxt} · ${dias} dia(s)</div>
-      ${loteTxt?`<div class="de">${loteTxt}</div>`:""}</div>`;
+  // junta situações (períodos) + outros eventos, do mais recente ao mais antigo
+  const entradas=[];
+  (pt.historico||[]).forEach((p,i)=>entradas.push({kind:"per",ref:String(i),status:p.status,inicio:p.inicio,fim:p.fim,loteId:p.loteId,ordena:p.inicio||0}));
+  entradas.push({kind:"per",ref:"atual",status:pt.status||"Livre",inicio:pt.statusDesde||pt.criadoEm||Date.now(),fim:null,loteId:pt.loteId||null,ordena:pt.statusDesde||pt.criadoEm||0});
+  (pt.manejos||[]).forEach(m=>entradas.push({kind:"man",ref:m.id,tipo:m.tipo,data:m.data,obs:m.obs,ordena:dataParaTs(m.data)||0}));
+  entradas.sort((a,b)=>b.ordena-a.ordena);
+  const bE=fn=>`<button class="btn-fant" style="padding:2px 6px;color:var(--verde)" onclick="${fn}">✎</button>`;
+  const bX=fn=>`<button class="btn-fant" style="padding:2px 6px;color:var(--perigo)" onclick="${fn}">✕</button>`;
+  const itens=entradas.map(e=>{
+    if(e.kind==="per"){
+      const [ic,txt]=rot[e.status]||rot.Livre;
+      const fimTxt=e.fim?fmt(tsData(e.fim)):"agora";
+      const dias=diasEntre(e.inicio,e.fim);
+      const loteTxt=(e.status==="Ocupado"&&e.loteId)?`▦ ${esc(nomeLote(e.loteId))}`:"";
+      const ctrl=bE(`editarPeriodoPasto('${id}','${e.ref}')`)+(e.ref!=="atual"?bX(`excluirPeriodoPasto('${id}','${e.ref}')`):"");
+      return `<div class="evt"><div class="row"><div class="tp">${ic} ${txt}</div><div style="white-space:nowrap">${ctrl}</div></div>
+        <div class="dt">${fmt(tsData(e.inicio))} → ${fimTxt} · ${dias} dia(s)</div>${loteTxt?`<div class="de">${loteTxt}</div>`:""}</div>`;
+    }else{
+      const ic=ICONE_PASTO_EV[e.tipo]||"📌";
+      const ctrl=bE(`formEventoPasto('${id}','${e.ref}')`)+bX(`excluirEventoPasto('${id}','${e.ref}')`);
+      return `<div class="evt"><div class="row"><div class="tp">${ic} ${esc(e.tipo)}</div><div style="white-space:nowrap">${ctrl}</div></div>
+        <div class="dt">${e.data?fmt(e.data):"—"}</div>${e.obs?`<div class="de">${esc(e.obs)}</div>`:""}</div>`;
+    }
   });
   $t.innerHTML=`<button class="voltar" onclick="telaGestaoPasto()">‹ Gestão do Pasto</button>
     <div class="card"><div class="ti" style="font-size:19px">🌱 ${esc(pt.nome)}</div>
@@ -493,8 +513,75 @@ async function verPasto(id){
       <div class="card" style="text-align:center"><div style="font-size:30px;font-weight:800;color:var(--verde)">${r.Descanso}</div><div class="meta">dia(s) reservado<br>(em descanso)</div></div>
       <div class="card" style="text-align:center"><div style="font-size:30px;font-weight:800;color:var(--verde-esc)">${r.Ocupado}</div><div class="meta">dia(s) ocupado</div></div>
     </div>
-    <div class="h3">Histórico de situações</div>
-    ${itens.length?verMais(itens,"registro(s)"):`<div class="meta">Sem mudanças de situação ainda.</div>`}`;
+    <button class="btn btn-sec" onclick="formEventoPasto('${id}')">+ Registrar evento no pasto</button>
+    <div class="h3">Histórico</div>
+    ${itens.length?verMais(itens,"registro(s)"):`<div class="meta">Sem registros ainda.</div>`}`;
+}
+/* ---------- Eventos do pasto (herbicida, roçada, etc.) ---------- */
+async function formEventoPasto(pastoId,eventoId){
+  const pt=await get("pastos",pastoId);
+  const ev=(eventoId&&(pt.manejos||[]).find(m=>m.id===eventoId))||null;
+  const optTipo=PASTO_EVENTOS.map(t=>`<option value="${esc(t)}" ${ev&&ev.tipo===t?"selected":""}>${ICONE_PASTO_EV[t]||""} ${t}</option>`).join("");
+  abrir(`<h2>${ev?"Editar evento":"Registrar evento no pasto"}</h2>
+    <label>Tipo *</label><select id="ep_tipo">${optTipo}</select>
+    <label>Data</label><input id="ep_data" type="date" value="${ev?ev.data:hoje()}">
+    <label>Observação (opcional)</label><input id="ep_obs" value="${ev?esc(ev.obs||""):""}" placeholder="Ex: produto, dose, área…">
+    <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+      <button class="btn" onclick="salvarEventoPasto('${pastoId}'${eventoId?`,'${eventoId}'`:""})">Salvar</button></div>`);
+}
+async function salvarEventoPasto(pastoId,eventoId){
+  const pt=await get("pastos",pastoId);
+  if(!pt.manejos)pt.manejos=[];
+  const tipo=val("ep_tipo"),data=val("ep_data"),obs=val("ep_obs");
+  if(eventoId){const m=pt.manejos.find(x=>x.id===eventoId);if(m){m.tipo=tipo;m.data=data;m.obs=obs;}}
+  else pt.manejos.push({id:uid(),tipo,data,obs,criadoEm:Date.now()});
+  await put("pastos",pt);fechar();verPasto(pastoId);
+}
+async function excluirEventoPasto(pastoId,eventoId){
+  if(!confirm("Excluir este evento do histórico?"))return;
+  const pt=await get("pastos",pastoId);
+  pt.manejos=(pt.manejos||[]).filter(m=>m.id!==eventoId);
+  await put("pastos",pt);verPasto(pastoId);
+}
+/* ---------- Editar/excluir situações (períodos) ---------- */
+async function editarPeriodoPasto(pastoId,ref){
+  const pt=await get("pastos",pastoId);
+  const {lotes}=await tudo();
+  const aberto=(ref==="atual");
+  const per=aberto?{status:pt.status||"Livre",inicio:pt.statusDesde||pt.criadoEm||Date.now(),fim:null,loteId:pt.loteId||null}:(pt.historico||[])[Number(ref)];
+  if(!per){verPasto(pastoId);return;}
+  const optStatus=["Livre","Descanso","Ocupado"].map(s=>`<option value="${s}" ${per.status===s?"selected":""}>${s}</option>`).join("");
+  const optLote=`<option value="">— nenhum —</option>`+lotes.map(l=>`<option value="${l.id}" ${per.loteId===l.id?"selected":""}>${esc(l.nome)}</option>`).join("");
+  abrir(`<h2>Editar situação</h2>
+    <label>Situação</label><select id="pp_status">${optStatus}</select>
+    <label>Lote (se ocupado)</label><select id="pp_lote">${optLote}</select>
+    <label>Início</label><input id="pp_ini" type="date" value="${tsData(per.inicio)}">
+    ${aberto?`<div class="meta" style="margin-top:10px">Fim: <b>em aberto (agora)</b> — é a situação atual do pasto.</div>`:`<label>Fim</label><input id="pp_fim" type="date" value="${per.fim?tsData(per.fim):hoje()}">`}
+    <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+      <button class="btn" onclick="salvarPeriodoPasto('${pastoId}','${ref}')">Salvar</button></div>`);
+}
+async function salvarPeriodoPasto(pastoId,ref){
+  const pt=await get("pastos",pastoId);
+  const status=val("pp_status");
+  const loteId=status==="Ocupado"?(val("pp_lote")||null):null;
+  const ini=dataParaTs(val("pp_ini"));
+  if(ref==="atual"){
+    pt.status=status;pt.loteId=loteId;if(ini)pt.statusDesde=ini;
+  }else{
+    const i=Number(ref);const arr=pt.historico||[];
+    if(arr[i]){const fim=dataParaTs(val("pp_fim"));
+      if(ini&&fim&&fim<ini){alert("A data de fim não pode ser anterior ao início.");return;}
+      arr[i]={status,inicio:ini,fim,loteId};pt.historico=arr;}
+  }
+  await put("pastos",pt);fechar();verPasto(pastoId);
+}
+async function excluirPeriodoPasto(pastoId,ref){
+  if(ref==="atual")return;
+  if(!confirm("Excluir este período do histórico? Os dias contados serão recalculados."))return;
+  const pt=await get("pastos",pastoId);
+  const i=Number(ref);
+  if((pt.historico||[])[i]){pt.historico.splice(i,1);await put("pastos",pt);}
+  verPasto(pastoId);
 }
 
 async function telaAvisos(){
