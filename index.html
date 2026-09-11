@@ -188,6 +188,8 @@
   .modal h2{margin:0 0 12px;font-size:18px;color:var(--verde-esc);}
   label{display:block;font-size:13px;color:var(--muted);margin:12px 0 5px;font-weight:600;}
   input,select,textarea{width:100%;padding:12px;border:1.5px solid var(--linha);border-radius:10px;font-size:16px;font-family:inherit;background:#fff;color:var(--texto);}
+  input[type="date"],input[type="time"]{-webkit-appearance:none;appearance:none;min-width:0;text-align:left;}
+  input[type="date"]::-webkit-date-and-time-value,input[type="time"]::-webkit-date-and-time-value{text-align:left;margin:0;}
   input:focus,select:focus,textarea:focus{outline:none;border-color:var(--verde);}
   textarea{resize:vertical;min-height:60px;}
   .sheet-item{padding:15px 4px;border-bottom:1px solid var(--linha);font-size:16px;display:flex;gap:12px;align-items:center;}
@@ -243,7 +245,7 @@ const rotulo=a=>(a&&(a.brinco||a.nome))||codAnimal(a);
 async function proximoCodigo(){const as=await getAll("animais");return as.reduce((m,a)=>Math.max(m,a.codigo||0),0)+1;}
 const numBR=id=>{let v=val(id);if(!v)return null;if(v.includes(','))v=v.replace(/\./g,'').replace(',','.');const n=parseFloat(v);return isNaN(n)?null:n;};
 const moeda=n=>n==null?"—":n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-const hoje=()=>new Date().toISOString().slice(0,10);
+const hoje=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0');};
 const horaAgora=()=>{const d=new Date();return String(d.getHours()).padStart(2,'0')+":"+String(d.getMinutes()).padStart(2,'0');};
 const fmt=d=>{if(!d)return"";const[a,m,x]=d.split("-");return`${x}/${m}/${a}`;};
 const esc=s=>(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -521,7 +523,7 @@ async function verPasto(id){
 async function formEventoPasto(pastoId,eventoId){
   const pt=await get("pastos",pastoId);
   const ev=(eventoId&&(pt.manejos||[]).find(m=>m.id===eventoId))||null;
-  const optTipo=PASTO_EVENTOS.map(t=>`<option value="${esc(t)}" ${ev&&ev.tipo===t?"selected":""}>${ICONE_PASTO_EV[t]||""} ${t}</option>`).join("");
+  const optTipo=PASTO_EVENTOS.map((t,i)=>`<option value="${esc(t)}" ${ev?(ev.tipo===t?"selected":""):(i===0?"selected":"")}>${ICONE_PASTO_EV[t]||""} ${t}</option>`).join("");
   abrir(`<h2>${ev?"Editar evento":"Registrar evento no pasto"}</h2>
     <label>Tipo *</label><select id="ep_tipo">${optTipo}</select>
     <label>Data</label><input id="ep_data" type="date" value="${ev?ev.data:hoje()}">
@@ -980,7 +982,7 @@ async function salvarPasto(){
   await put("pastos",{id:uid(),propriedadeId:val("pt_prop"),nome,areaHa:numBR("pt_area"),
     tipoCapim:val("pt_capim"),status,loteId:status==="Ocupado"?(val("pt_lote")||null):null,
     criadoEm:Date.now(),statusDesde:Date.now(),historico:[]});
-  fechar();render();
+  fechar();telaGestaoPasto();
 }
 async function formEditarPasto(id){
   const pt=await get("pastos",id);
@@ -1017,12 +1019,12 @@ async function salvarEdicaoPasto(id){
   }
   pt.propriedadeId=val("pe_prop");pt.nome=nome;pt.areaHa=numBR("pe_area");pt.tipoCapim=val("pe_capim");
   pt.status=novoStatus;pt.loteId=novoLote;
-  await put("pastos",pt);fechar();render();
+  await put("pastos",pt);fechar();telaGestaoPasto();
 }
 async function excluirPasto(id){
   const pt=await get("pastos",id);
   if(!confirm(`Apagar o pasto "${pt?pt.nome:""}"?`))return;
-  await del("pastos",id);fechar();render();
+  await del("pastos",id);fechar();telaGestaoPasto();
 }
 
 async function formNovoAnimal(loteFixo,nascimento){
