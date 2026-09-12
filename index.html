@@ -116,6 +116,8 @@
   /* ---------- Módulos ---------- */
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .mod-list{display:flex;flex-direction:column;gap:22px;margin-bottom:6px;}
+  .filtros-animais{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}
+  .filtros-animais select{font-size:15px;padding:10px 12px;}
   .mod{background:var(--verde-lite);border-radius:var(--radius);padding:14px;cursor:pointer;position:relative;}
   .mod:active{background:var(--verde-lite2);}
   .mod .mic{width:44px;height:44px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;
@@ -705,19 +707,62 @@ async function verLote(id){
 }
 
 /* ======================= ANIMAIS ======================= */
+let _dadosAnimais=null;
 async function telaAnimais(){
   topoPagina();
-  const {propriedades,lotes,animais}=await tudo();
+  const {propriedades,lotes,animais,marcas,medicamentos}=await tudo();
+  const eventos=await getAll("eventos");
   const nomeLote=id=>(lotes.find(l=>l.id===id)||{}).nome||"—";
+  const marcaSigla=id=>{const m=marcas.find(x=>x.id===id);return m?(m.sigla||m.nome||""):"";};
+  // conjunto de medicamentos aplicados a cada animal
+  const medPorAnimal={};
+  for(const e of eventos){if(e.tipo==="Medicamento"&&e.medicamentoId){(medPorAnimal[e.animalId]=medPorAnimal[e.animalId]||new Set()).add(e.medicamentoId);}}
+  _dadosAnimais={animais,nomeLote,marcaSigla,medPorAnimal};
+
   let html=`<button class="btn" onclick="formNovoAnimal()">+ Novo animal</button>`;
   if(lotes.length===0){html+=`<div class="vazio"><div class="big">🐄</div><b>Crie um lote primeiro</b><div class="meta">Todo animal pertence a um lote.</div></div>`;return void($t.innerHTML=html);}
-  html+=`<input id="busca" placeholder="Buscar por brinco, nome ou nº…" oninput="filtrar()" style="margin-bottom:12px"><div id="lista">`;
-  if(animais.length===0)html+=`<div class="vazio"><div class="big">🐄</div><b>Nenhum animal</b><div class="meta">Cadastre um animal ou registre um nascimento.</div></div>`;
-  else for(const a of animais.sort((x,y)=>(x.codigo||0)-(y.codigo||0)))html+=linhaAnimal(a,nomeLote(a.loteAtualId),true);
-  html+=`</div>`;$t.innerHTML=html;
+  if(animais.length===0){html+=`<div class="vazio"><div class="big">🐄</div><b>Nenhum animal</b><div class="meta">Cadastre um animal ou registre um nascimento.</div></div>`;return void($t.innerHTML=html);}
+  const optMarca=`<option value="">Marca / dono: todos</option>`+marcas.map(m=>`<option value="${m.id}">Marca: ${esc(m.sigla||m.nome)}</option>`).join("")+`<option value="__sem">Sem marca</option>`;
+  const optMed=`<option value="">Medicação: qualquer</option>`+medicamentos.map(m=>`<option value="${m.id}">Tomou: ${esc(m.nome)}</option>`).join("");
+  const optNasc=`<option value="">Nascimento: qualquer</option><option value="5">Nasceu nos últimos 5 meses</option><option value="7">Nasceu nos últimos 7 meses</option><option value="12">Nasceu nos últimos 12 meses</option>`;
+  html+=`<input id="busca" placeholder="Buscar por brinco, nome ou nº…" oninput="filtrarAnimais()" style="margin-bottom:10px">
+    <div class="filtros-animais">
+      <select id="f_marca" onchange="filtrarAnimais()">${optMarca}</select>
+      <select id="f_med" onchange="filtrarAnimais()">${optMed}</select>
+      <select id="f_nasc" onchange="filtrarAnimais()">${optNasc}</select>
+    </div>
+    <div class="row" style="margin:0 4px 8px"><span id="animais_count" class="meta"></span>
+      <button class="btn-fant" style="padding:2px 6px;color:var(--verde)" onclick="limparFiltrosAnimais()">Limpar filtros</button></div>
+    <div id="lista"></div>`;
+  $t.innerHTML=html;
+  filtrarAnimais();
 }
-function filtrar(){const t=val("busca").toLowerCase();
-  document.querySelectorAll("#lista .card").forEach(c=>c.style.display=c.dataset.b.includes(t)?"":"none");}
+function limparFiltrosAnimais(){
+  ["f_marca","f_med","f_nasc"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  const b=document.getElementById("busca");if(b)b.value="";
+  filtrarAnimais();
+}
+function filtrarAnimais(){
+  if(!_dadosAnimais)return;
+  const {animais,nomeLote,marcaSigla,medPorAnimal}=_dadosAnimais;
+  const t=(val("busca")||"").toLowerCase();
+  const fMarca=(document.getElementById("f_marca")||{}).value||"";
+  const fMed=(document.getElementById("f_med")||{}).value||"";
+  const fNasc=(document.getElementById("f_nasc")||{}).value||"";
+  let limite=null;
+  if(fNasc){const d=new Date();d.setMonth(d.getMonth()-Number(fNasc));limite=d.getTime();}
+  const lista=animais.slice().sort((x,y)=>(x.codigo||0)-(y.codigo||0)).filter(a=>{
+    if(t){const blob=((a.brinco||"")+" "+(a.nome||"")+" "+codAnimal(a)).toLowerCase();if(!blob.includes(t))return false;}
+    if(fMarca){if(fMarca==="__sem"){if(a.marcaId)return false;}else if(a.marcaId!==fMarca)return false;}
+    if(fMed){const s=medPorAnimal[a.id];if(!s||!s.has(fMed))return false;}
+    if(limite!=null){if(!a.dataNascimento)return false;const dn=dataParaTs(a.dataNascimento);if(dn==null||dn<limite)return false;}
+    return true;
+  });
+  const cont=document.getElementById("lista");
+  if(cont)cont.innerHTML=lista.length?lista.map(a=>{a._marcaSigla=marcaSigla(a.marcaId);return linhaAnimal(a,nomeLote(a.loteAtualId),true);}).join(""):`<div class="meta" style="padding:12px 4px">Nenhum animal com esses filtros.</div>`;
+  const cEl=document.getElementById("animais_count");
+  if(cEl)cEl.textContent=`${lista.length} de ${animais.length} animal(is)`;
+}
 function linhaAnimal(a,nomeLote,mostraLote){
   const sx=sexoChip(a.sexo);
   const st=a.status!=="Ativo"?`<span class="chip chip-off">${a.status}</span>`:"";
