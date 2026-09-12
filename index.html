@@ -292,11 +292,6 @@ async function moverAnimal(id,novoLote){
   a.loteAtualId=novoLote;await put("animais",a);
   await registrarEvento(id,"Movimentação",hoje(),`De "${de?de.nome:"—"}" para "${para?para.nome:"—"}"`);
 }
-async function vacinarLote(loteId,vac,data,hora){
-  const as=(await getAll("animais")).filter(a=>a.loteAtualId===loteId&&a.status==="Ativo");
-  for(const a of as)await registrarEvento(a.id,"Vacinação",data,vac,{hora});
-  return as.length;
-}
 
 /* ======================= NAV ======================= */
 const $t=document.getElementById("tela"); let aba="painel"; let _perfilFoto=""; let _animalFoto=""; let _editPastos=false; let _editNasc=false; let _lembreteOculto=false;
@@ -794,7 +789,7 @@ async function verLote(id){
       ${p?`<div class="meta">${esc(p.nome)}</div>`:""}
       ${l.descricao?`<div class="meta">${esc(l.descricao)}</div>`:""}
       <div class="meta">${animais.length} animais ativos</div></div>
-    <button class="btn" onclick="formVacinarLote('${id}')">💉 Vacinar lote inteiro</button>
+    <button class="btn" onclick="formMedicarLote('${id}')">💊 Medicamento aplicado no lote inteiro</button>
     <div class="lado"><button class="btn btn-sec" onclick="formNovoAnimal('${id}')">+ Animal</button>
       <button class="btn btn-perigo" onclick="apagarLote('${id}')">Apagar</button></div>
     <div class="h3">Animais</div>${lst}`;
@@ -900,6 +895,7 @@ async function verAnimal(id){
             ${sexoChip(a.sexo)}
             <span class="chip chip-lote">▦ ${esc(nomeLote)}</span>
             ${marca?`<span class="chip chip-marca">${esc(marca.sigla)}</span>`:""}
+            ${a.castrado?`<span class="chip chip-off">✂️ Castrado</span>`:""}
             ${a.status!=="Ativo"?`<span class="chip chip-off">${a.status}</span>`:""}</div>
         </div>
       </div>
@@ -914,6 +910,7 @@ async function verAnimal(id){
       <div class="lado"><button class="btn" onclick="formMedicarAnimal('${id}')">💊 Medicar</button>
         <button class="btn btn-sec" onclick="formMover('${id}')">↷ Mover lote</button></div>
       <button class="btn btn-sec" onclick="formEvento('${id}')">+ Registrar evento de manejo</button>
+      ${a.sexo==="M"&&!a.castrado?`<button class="btn btn-sec" onclick="castrarAnimal('${id}')">✂️ Registrar castração</button>`:""}
     </div>
     ${a.status==="Ativo"?`<button class="btn btn-perigo animal-saida" onclick="formSaida('${id}')">↩ Registrar saída (morte/venda)</button>`:""}
     <div class="h3">Histórico</div>${tl}
@@ -1375,15 +1372,38 @@ async function salvarEdicaoAnimal(id){
   fechar(); verAnimal(id);
 }
 
-async function formVacinarLote(loteId){const l=await get("lotes",loteId);
-  abrir(`<h2>Vacinar lote inteiro</h2><div class="meta">Lote: <b>${esc(l.nome)}</b>. Registra a vacinação em cada animal ativo.</div>
-    <label>Vacina / produto *</label><input id="v_vac" placeholder="Ex: Aftosa, Brucelose…">
+async function formMedicarLote(loteId){
+  const l=await get("lotes",loteId);
+  const medicamentos=await getAll("medicamentos");
+  const ativos=(await getAll("animais")).filter(a=>a.loteAtualId===loteId&&a.status==="Ativo").length;
+  if(!medicamentos.length){
+    abrir(`<h2>💊 Medicamento no lote</h2>
+      <div class="meta">Nenhum medicamento cadastrado ainda. Cadastre o primeiro para registrar a aplicação.</div>
+      <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+        <button class="btn" onclick="gerenciarMedicamentos()">Cadastrar medicamento</button></div>`);
+    return;
+  }
+  const optMed=medicamentos.map(m=>`<option value="${m.id}">${esc(m.nome)}${m.marca?` · ${esc(m.marca)}`:""}</option>`).join("");
+  const optVia=VIAS.map(v=>`<option value="${v}">${v}</option>`).join("");
+  abrir(`<h2>💊 Medicamento no lote inteiro</h2>
+    <div class="meta" style="margin-bottom:6px">Lote: <b>${esc(l.nome)}</b> · aplica em <b>${ativos}</b> animal(is) ativo(s).</div>
+    <label>Medicamento *</label><select id="ml_med">${optMed}</select>
+    <label>Via de aplicação</label><select id="ml_via">${optVia}</select>
+    <label>Dose (opcional)</label><input id="ml_dose" placeholder="Ex: 5 ml">
     <label>Data e hora</label>
-    <div class="lado"><input id="v_data" type="date" value="${hoje()}"><input id="v_hora" type="time" value="${horaAgora()}"></div>
+    <div class="lado"><input id="ml_data" type="date" value="${hoje()}"><input id="ml_hora" type="time" value="${horaAgora()}"></div>
     <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
-      <button class="btn" onclick="confVacLote('${loteId}')">Aplicar</button></div>`);}
-async function confVacLote(id){const v=val("v_vac");if(!v)return alert("Informe a vacina.");
-  const n=await vacinarLote(id,v,val("v_data"),val("v_hora"));fechar();render();alert(`"${v}" registrada em ${n} animal(is).`);}
+      <button class="btn" onclick="salvarMedicarLote('${loteId}')">Aplicar</button></div>`);
+}
+async function salvarMedicarLote(loteId){
+  const medId=(document.getElementById("ml_med")||{}).value||null;
+  if(!medId)return alert("Selecione o medicamento.");
+  const via=val("ml_via"),dose=val("ml_dose"),data=val("ml_data"),hora=val("ml_hora");
+  const ativos=(await getAll("animais")).filter(a=>a.loteAtualId===loteId&&a.status==="Ativo");
+  for(const a of ativos)await registrarEvento(a.id,"Medicamento",data,"",{hora,medicamentoId:medId,via,dose});
+  const nome=(await get("medicamentos",medId)||{}).nome||"Medicamento";
+  fechar();verLote(loteId);alert(`"${nome}" registrado em ${ativos.length} animal(is).`);
+}
 
 async function formMover(id){const a=await get("animais",id);
   const {propriedades,lotes}=await tudo();const outros=lotes.filter(l=>l.id!==a.loteAtualId);
@@ -1406,8 +1426,8 @@ async function telaManejo(){
     const mapa=new Map();
     for(const e of evs){
       const chave=[e.tipo,e.data||"",e.hora||"",e.detalhes||"",e.medicamentoId||"",e.via||"",e.dose||""].join("|");
-      if(!mapa.has(chave))mapa.set(chave,{...e,animalIds:[]});
-      mapa.get(chave).animalIds.push(e.animalId);
+      if(!mapa.has(chave))mapa.set(chave,{...e,animalIds:[],eventoIds:[]});
+      const g=mapa.get(chave);g.animalIds.push(e.animalId);g.eventoIds.push(e.id);
     }
     return [...mapa.values()];
   };
@@ -1425,11 +1445,19 @@ async function telaManejo(){
       }else if(tipo==="Marcação"){
         tituloReg="Marcação realizada";
         detalhe=g.detalhes?esc(g.detalhes):"Sem observação";
+      }else if(tipo==="Castração"){
+        tituloReg="Castração";
+        detalhe=g.detalhes?esc(g.detalhes):"";
+      }else if(tipo==="Outro"){
+        tituloReg=esc(g.detalhes||"Outro evento");
       }else{
-        tituloReg=esc(g.detalhes||"Troca de lote");
+        tituloReg=esc(g.detalhes||tipo);
       }
       const quando=`${fmt(g.data)}${g.hora?` · ${esc(g.hora)}`:""}`;
-      return `<div class="manejo-reg"><div class="mr-top"><div class="mr-title">${tituloReg}</div><div class="mr-date">${quando}</div></div><div class="mr-meta">${quem}${detalhe?`<br>${detalhe}`:""}</div></div>`;
+      const ctrl=tipo!=="Movimentação"?`<div style="margin-top:8px">
+        <button class="btn-fant" style="padding:2px 10px 2px 0;color:var(--verde);font-weight:600" onclick="editarGrupoManejo('${tipo}','${g.eventoIds.join(",")}')">✎ Editar</button>
+        <button class="btn-fant" style="padding:2px 6px;color:var(--perigo)" onclick="excluirGrupoManejo('${tipo}','${g.eventoIds.join(",")}')">✕ Excluir</button></div>`:"";
+      return `<div class="manejo-reg"><div class="mr-top"><div class="mr-title">${tituloReg}</div><div class="mr-date">${quando}</div></div><div class="mr-meta">${quem}${detalhe?`<br>${detalhe}`:""}</div>${ctrl}</div>`;
     });
     return `<div class="manejo-sec"><div class="manejo-sec-head"><div class="manejo-sec-title">${icone} ${titulo}</div><span class="manejo-count">${grupos.length}</span></div>${verMais(regsArr,"registro(s)")}</div>`;
   };
@@ -1440,12 +1468,15 @@ async function telaManejo(){
     ${mod("🔥","Marcar animais","Registrar marcação (ferro).","formManejo('Marcação')")}
     ${mod("💊","Medicamento aplicado","Injeção, pour on, spray, brinco, ingestão…","formManejo('Medicamento')")}
     ${mod("↷","Trocar de lote","Mover um animal ou o lote inteiro.","formManejo('Movimentação')")}
+    ${mod("✂️","Outros","Castração e outros eventos de manejo.","formManejo('Outros')")}
     </div>
     <div class="manejo-hist">
       <div class="sechead"><span class="sic">🗂</span><h2>Histórico de manejo</h2></div>
       ${sec("Medicamento","💊","Medicações realizadas")}
       ${sec("Marcação","🔥","Marcações de animais")}
       ${sec("Movimentação","↷","Trocas de lote")}
+      ${sec("Castração","✂️","Castrações")}
+      ${sec("Outro","📌","Outros eventos")}
     </div>`;
 }
 async function formManejo(tipo){
@@ -1469,8 +1500,16 @@ async function formManejo(tipo){
     especifico=`<label>Observação (opcional)</label><input id="mj_obs" placeholder="Ex: ferro IJG, mossa…">`;
   }else if(tipo==="Movimentação"){
     especifico=`<label>Lote de destino *</label><select id="mj_destino">${optLotes}</select>`;
+  }else if(tipo==="Outros"){
+    especifico=`<label>Tipo do evento</label>
+      <select id="mj_sub" onchange="toggleOutro()">
+        <option value="Castração">Castração (somente machos)</option>
+        <option value="Outro">Outro (especificar)</option>
+      </select>
+      <div id="grp_outro" style="display:none"><label>Qual evento? *</label><input id="mj_qual" placeholder="Ex: descorna, exame, pesagem…"></div>
+      <label>Observação (opcional)</label><input id="mj_obs">`;
   }
-  const titulo=tipo==="Movimentação"?"Trocar de lote":(tipo==="Marcação"?"Marcar animais":"Medicamento aplicado");
+  const titulo=tipo==="Movimentação"?"Trocar de lote":(tipo==="Marcação"?"Marcar animais":(tipo==="Outros"?"Outros eventos":"Medicamento aplicado"));
   abrir(`<h2>${titulo}</h2>
     <label>Aplicar a</label>
     <select id="mj_alvo" onchange="toggleAlvo()">
@@ -1488,6 +1527,10 @@ function toggleAlvo(){
   const lote=document.getElementById("mj_alvo").value==="lote";
   document.getElementById("grp_animal").style.display=lote?"none":"block";
   document.getElementById("grp_lote").style.display=lote?"block":"none";
+}
+function toggleOutro(){
+  const el=document.getElementById("grp_outro");
+  if(el)el.style.display=(document.getElementById("mj_sub").value==="Outro")?"block":"none";
 }
 async function salvarManejo(tipo){
   const alvo=document.getElementById("mj_alvo").value;
@@ -1524,8 +1567,63 @@ async function salvarManejo(tipo){
     const medId=(document.getElementById("mj_med")||{}).value||null;
     const via=val("mj_via"), dose=val("mj_dose"), obs=val("mj_obs");
     for(const id of lista){await registrarEvento(id,"Medicamento",data,obs,{hora,medicamentoId:medId,via,dose});n++;}
+  }else if(tipo==="Outros"){
+    const sub=(document.getElementById("mj_sub")||{}).value||"Castração";
+    const obs=val("mj_obs");
+    if(sub==="Castração"){
+      for(const id of lista){const a=await get("animais",id);if(!a||a.sexo!=="M")continue;a.castrado=true;a.dataCastracao=data;await put("animais",a);await registrarEvento(id,"Castração",data,obs,{hora});n++;}
+      if(!n){fechar();return alert("Nenhum macho entre os selecionados para castrar.");}
+    }else{
+      const qual=val("mj_qual");if(!qual)return alert("Descreva qual foi o evento.");
+      const det=[qual,obs].filter(Boolean).join(" · ");
+      for(const id of lista){await registrarEvento(id,"Outro",data,det,{hora});n++;}
+    }
   }
   fechar();render();alert(`Registrado em ${n} animal(is).`);
+}
+async function editarGrupoManejo(tipo,idsCsv){
+  const ids=idsCsv.split(",");
+  const ev=await get("eventos",ids[0]); if(!ev){telaManejo();return;}
+  const medicamentos=await getAll("medicamentos");
+  let campos="";
+  if(tipo==="Medicamento"){
+    const optMed=(medicamentos.map(m=>`<option value="${m.id}" ${ev.medicamentoId===m.id?"selected":""}>${esc(m.nome)}${m.marca?` · ${esc(m.marca)}`:""}</option>`).join(""))||`<option value="">— nenhum —</option>`;
+    campos=`<label>Medicamento</label><select id="em_med">${optMed}</select>
+      <label>Via de aplicação</label><select id="em_via">${VIAS.map(v=>`<option value="${v}" ${ev.via===v?"selected":""}>${v}</option>`).join("")}</select>
+      <label>Dose (opcional)</label><input id="em_dose" value="${esc(ev.dose||"")}">
+      <label>Observação (opcional)</label><input id="em_obs" value="${esc(ev.detalhes||"")}">`;
+  }else if(tipo==="Outro"){
+    campos=`<label>Descrição do evento *</label><input id="em_det" value="${esc(ev.detalhes||"")}">`;
+  }else{
+    campos=`<label>Observação (opcional)</label><input id="em_obs" value="${esc(ev.detalhes||"")}">`;
+  }
+  abrir(`<h2>Editar registro</h2>
+    <div class="meta" style="margin-bottom:10px">A alteração vale para os <b>${ids.length}</b> animal(is) deste registro.</div>
+    ${campos}
+    <label>Data e hora</label>
+    <div class="lado"><input id="em_data" type="date" value="${ev.data||hoje()}"><input id="em_hora" type="time" value="${ev.hora||horaAgora()}"></div>
+    <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+      <button class="btn" onclick="salvarGrupoManejo('${tipo}','${idsCsv}')">Salvar</button></div>`);
+}
+async function salvarGrupoManejo(tipo,idsCsv){
+  const ids=idsCsv.split(",");
+  const patch={data:val("em_data"),hora:val("em_hora")};
+  if(tipo==="Medicamento"){
+    patch.medicamentoId=(document.getElementById("em_med")||{}).value||null;
+    patch.via=val("em_via");patch.dose=val("em_dose");patch.detalhes=val("em_obs");
+  }else if(tipo==="Outro"){
+    const det=val("em_det");if(!det)return alert("Descreva o evento.");patch.detalhes=det;
+  }else{
+    patch.detalhes=val("em_obs");
+  }
+  for(const id of ids){const e=await get("eventos",id);if(!e)continue;Object.assign(e,patch);await put("eventos",e);}
+  fechar();telaManejo();
+}
+async function excluirGrupoManejo(tipo,idsCsv){
+  const ids=idsCsv.split(",");
+  if(!confirm(`Excluir este registro? Ele será removido de ${ids.length} animal(is).`))return;
+  for(const id of ids)await del("eventos",id);
+  telaManejo();
 }
 
 /* ---------- Cadastro de medicamentos ---------- */
@@ -1600,6 +1698,23 @@ async function salvarMedicarAnimal(id){
   const medId=(document.getElementById("md_med")||{}).value||null;
   if(!medId)return alert("Selecione o medicamento.");
   await registrarEvento(id,"Medicamento",val("md_data"),val("md_obs"),{hora:val("md_hora"),medicamentoId:medId,via:val("md_via"),dose:val("md_dose")});
+  fechar();verAnimal(id);
+}
+async function castrarAnimal(id){
+  const a=await get("animais",id);if(!a)return;
+  if(a.sexo!=="M")return alert("Só é possível registrar castração em machos.");
+  abrir(`<h2>✂️ Registrar castração</h2>
+    <div class="meta" style="margin-bottom:8px"><b>${esc(rotulo(a))}</b> ${codAnimal(a)}</div>
+    <label>Data</label><input id="ct_data" type="date" value="${hoje()}">
+    <label>Observação (opcional)</label><input id="ct_obs" placeholder="Ex: método, responsável…">
+    <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+      <button class="btn" onclick="salvarCastracao('${id}')">Salvar</button></div>`);
+}
+async function salvarCastracao(id){
+  const a=await get("animais",id);if(!a)return;
+  a.castrado=true;a.dataCastracao=val("ct_data")||hoje();
+  await put("animais",a);
+  await registrarEvento(id,"Castração",a.dataCastracao,val("ct_obs"),{});
   fechar();verAnimal(id);
 }
 async function formEvento(id,tipoFixo){
