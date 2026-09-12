@@ -299,7 +299,7 @@ async function vacinarLote(loteId,vac,data,hora){
 }
 
 /* ======================= NAV ======================= */
-const $t=document.getElementById("tela"); let aba="painel"; let _perfilFoto=""; let _animalFoto=""; let _editPastos=false; let _lembreteOculto=false;
+const $t=document.getElementById("tela"); let aba="painel"; let _perfilFoto=""; let _animalFoto=""; let _editPastos=false; let _editNasc=false; let _lembreteOculto=false;
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
   aba=b.dataset.aba;
   document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("ativo",x===b));
@@ -429,6 +429,22 @@ const PASTO_EVENTOS=["Herbicida","Roçada","Adubação","Calagem","Reforma / Pla
 const ICONE_PASTO_EV={"Herbicida":"🧪","Roçada":"🌾","Adubação":"🌿","Calagem":"⚪","Reforma / Plantio":"🌱","Limpeza de cerca":"🚧","Análise de solo":"🔬","Outro":"📌"};
 // "AAAA-MM-DD" -> timestamp local ao meio-dia (evita erro de fuso)
 const dataParaTs=s=>{if(!s)return null;const[a,m,d]=s.split("-").map(Number);return new Date(a,(m||1)-1,d||1,12,0,0).getTime();};
+// ---------- Desmama ----------
+const DIAS_DESMAMA=210;
+function desmamaInfo(a){
+  if(a.desmamado)return {desmamado:true,dataDesmama:a.dataDesmama||""};
+  if(!a.dataNascimento)return {desmamado:false,semData:true};
+  const idade=diasEntre(dataParaTs(a.dataNascimento),Date.now());
+  return {desmamado:false,idadeDias:idade,diasRestantes:DIAS_DESMAMA-idade};
+}
+function desmamaLabel(a){
+  const d=desmamaInfo(a);
+  if(d.desmamado)return `✅ Desmamado${d.dataDesmama?` em ${fmt(d.dataDesmama)}`:""}`;
+  if(d.semData)return `🍼 Desmama: informe a data de nascimento`;
+  if(d.diasRestantes>0)return `🍼 Desmama em ${d.diasRestantes} dia(s)`;
+  if(d.diasRestantes===0)return `🍼 Desmama é hoje!`;
+  return `⚠️ Desmama atrasada há ${-d.diasRestantes} dia(s)`;
+}
 
 async function telaNascimentos(){
   topoPagina();
@@ -437,16 +453,67 @@ async function telaNascimentos(){
   const rotMae=id=>{const m=animais.find(a=>a.id===id);return m?rotulo(m):"—";};
   const nascidos=animais.filter(a=>a.nascidoNaPropriedade===true)
     .sort((x,y)=>(y.dataNascimento||"").localeCompare(x.dataNascimento||""));
-  const nascItens=nascidos.map(a=>`<div class="card rt" onclick="verAnimal('${a.id}')">
-    <div class="ti">${esc(rotulo(a))} <span class="chip chip-id">${codAnimal(a)}</span></div>
-    <div class="meta" style="margin-top:6px">${sexoChip(a.sexo)}<span class="chip chip-lote">▦ ${esc(nomeLote(a.loteAtualId))}</span></div>
-    <div class="meta" style="margin-top:6px">Mãe: <b>${a.maeId?esc(rotMae(a.maeId)):"—"}</b> · Nascimento: ${a.dataNascimento?fmt(a.dataNascimento):"—"}</div></div>`);
+  const nascItens=nascidos.map(a=>{
+    const info=desmamaInfo(a);
+    const atrasado=!a.desmamado&&!info.semData&&info.diasRestantes<=0;
+    const ctrl=_editNasc?`<div style="white-space:nowrap">
+        <button class="btn-fant" style="padding:2px 6px;color:var(--verde)" onclick="event.stopPropagation();formEditarAnimal('${a.id}')">✎</button>
+        ${a.desmamado?`<button class="btn-fant" style="padding:2px 6px;color:var(--perigo)" onclick="event.stopPropagation();desfazerDesmama('${a.id}')">Desfazer</button>`:""}
+      </div>`:"";
+    const linhaDesmama=`<div class="meta" style="margin-top:6px${atrasado?';color:#c0392b;font-weight:600':(a.desmamado?';color:var(--verde)':'')}">${desmamaLabel(a)}</div>`;
+    const btnDesmamar=(!a.desmamado)?`<button class="btn-fant" style="padding:8px 0 0;color:var(--verde);font-weight:600" onclick="event.stopPropagation();formDesmama('${a.id}')">🍼 Registrar desmama ›</button>`:"";
+    return `<div class="card rt" onclick="verAnimal('${a.id}')">
+      <div class="row"><div class="ti">${esc(rotulo(a))} <span class="chip chip-id">${codAnimal(a)}</span></div>${ctrl}</div>
+      <div class="meta" style="margin-top:6px">${sexoChip(a.sexo)}<span class="chip chip-lote">▦ ${esc(nomeLote(a.loteAtualId))}</span></div>
+      <div class="meta" style="margin-top:6px">Mãe: <b>${a.maeId?esc(rotMae(a.maeId)):"—"}</b> · Nascimento: ${a.dataNascimento?fmt(a.dataNascimento):"—"}</div>
+      ${linhaDesmama}${btnDesmamar}</div>`;
+  });
   let lst=nascidos.length?verMais(nascItens,"bezerro(s)"):`<div class="vazio"><div class="big">🍼</div><b>Nenhum nascimento registrado</b><div class="meta">Toque em "Registrar nascimento" para incluir o primeiro bezerro.</div></div>`;
-  $t.innerHTML=`<button class="voltar" onclick="irAba('painel')">‹ Painel</button>
+  $t.innerHTML=`<button class="voltar" onclick="_editNasc=false;irAba('painel')">‹ Painel</button>
     <div class="sechead"><span class="sic">🍼</span><h2>Nascimentos</h2></div>
     <button class="btn" onclick="formNovoAnimal(null,true)">+ Registrar nascimento</button>
-    <div class="meta" style="margin:0 4px 10px">${nascidos.length} bezerro(s) nascido(s) na propriedade.</div>
+    <button class="btn btn-sec" onclick="_editNasc=!_editNasc;telaNascimentos()">${_editNasc?"✓ Concluir edição":"✎ Editar nascimentos"}</button>
+    <button class="btn btn-sec" onclick="formDesmama()">🍼 Registrar desmama</button>
+    <div class="meta" style="margin:8px 4px 10px">${nascidos.length} bezerro(s) nascido(s) na propriedade.${_editNasc?" Toque em ✎ para editar um nascimento.":""}</div>
     ${lst}`;
+}
+async function formDesmama(animalId){
+  const {animais}=await tudo();
+  if(animalId){
+    const a=animais.find(x=>x.id===animalId);if(!a){fechar();return;}
+    abrir(`<h2>Registrar desmama</h2>
+      <div class="meta" style="margin-bottom:10px"><b>${esc(rotulo(a))}</b> ${codAnimal(a)}${a.dataNascimento?` · nasc. ${fmt(a.dataNascimento)}`:""}</div>
+      <label>Data da desmama</label><input id="dm_data" type="date" value="${hoje()}">
+      <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+        <button class="btn" onclick="salvarDesmama('${animalId}')">Salvar</button></div>`);
+    return;
+  }
+  const naoDesmamados=animais.filter(a=>a.nascidoNaPropriedade===true&&!a.desmamado).sort((x,y)=>(x.codigo||0)-(y.codigo||0));
+  if(!naoDesmamados.length){
+    abrir(`<h2>Registrar desmama</h2><div class="meta">Todos os bezerros já estão desmamados. 🎉</div>
+      <button class="btn btn-sec" style="margin-top:14px" onclick="fechar()">Fechar</button>`);return;
+  }
+  const opt=naoDesmamados.map(a=>`<option value="${a.id}">${esc(rotulo(a))} ${codAnimal(a)}</option>`).join("");
+  abrir(`<h2>Registrar desmama</h2>
+    <label>Bezerro *</label><select id="dm_animal">${opt}</select>
+    <label>Data da desmama</label><input id="dm_data" type="date" value="${hoje()}">
+    <div class="lado" style="margin-top:18px"><button class="btn btn-sec" onclick="fechar()">Cancelar</button>
+      <button class="btn" onclick="salvarDesmama()">Salvar</button></div>`);
+}
+async function salvarDesmama(animalId){
+  const id=animalId||(document.getElementById("dm_animal")||{}).value;
+  if(!id)return alert("Selecione o bezerro.");
+  const a=await get("animais",id);if(!a)return;
+  a.desmamado=true;a.dataDesmama=val("dm_data")||hoje();
+  await put("animais",a);
+  await registrarEvento(id,"Desmama",a.dataDesmama,"Bezerro desmamado");
+  fechar();telaNascimentos();
+}
+async function desfazerDesmama(animalId){
+  if(!confirm("Desfazer a desmama deste bezerro?"))return;
+  const a=await get("animais",animalId);if(!a)return;
+  a.desmamado=false;a.dataDesmama="";
+  await put("animais",a);telaNascimentos();
 }
 
 async function telaGestaoPasto(){
@@ -601,7 +668,7 @@ async function excluirPeriodoPasto(pastoId,ref){
 
 async function telaAvisos(){
   topoPagina();
-  const {propriedades,pastos}=await tudo();
+  const {propriedades,pastos,animais}=await tudo();
   const cfg=await getConfig(); const dias=diasDesde(cfg.ultimoBackup); const freq=cfg.lembreteDias||7;
   const nomeProp=id=>(propriedades.find(p=>p.id===id)||{}).nome||"";
   const backupCard=(dias===null||dias>=freq)
@@ -614,9 +681,22 @@ async function telaAvisos(){
     : `<div class="meta" style="padding:2px 4px 4px">${vazio}</div>`);
   const descanso=pastos.filter(p=>p.status==="Descanso");
   const livres=pastos.filter(p=>p.status==="Livre");
+  // desmama: bezerros não desmamados, faltando até 30 dias ou já atrasados
+  const desmamaProx=animais.filter(a=>a.nascidoNaPropriedade===true&&!a.desmamado&&a.dataNascimento)
+    .map(a=>({a,d:DIAS_DESMAMA-diasEntre(dataParaTs(a.dataNascimento),Date.now())}))
+    .filter(x=>x.d<=30).sort((x,y)=>x.d-y.d);
+  const blocoDesmama=`<div class="h3">🍼 Desmama próxima (até 30 dias)</div>`+(desmamaProx.length
+    ? desmamaProx.map(x=>{
+        const txt=x.d>0?`faltam ${x.d} dia(s)`:(x.d===0?"é hoje!":`atrasada há ${-x.d} dia(s)`);
+        const cor=x.d<=0?"#c0392b":"var(--muted)";
+        return `<div class="card rt" onclick="formDesmama('${x.a.id}')"><div class="ti" style="font-size:15px">${esc(rotulo(x.a))} ${codAnimal(x.a)}</div>
+          <div class="meta" style="color:${cor}">🍼 Desmama ${txt} · nasc. ${fmt(x.a.dataNascimento)}</div></div>`;
+      }).join("")
+    : `<div class="meta" style="padding:2px 4px 4px">Nenhuma desmama nos próximos 30 dias.</div>`);
   $t.innerHTML=`<button class="voltar" onclick="irAba('painel')">‹ Painel</button>
     <div class="sechead"><span class="sic">🔔</span><h2>Avisos</h2></div>
     ${backupCard}
+    ${blocoDesmama}
     ${bloco(descanso,"🌿 Pastos em descanso","Nenhum pasto em descanso.")}
     ${bloco(livres,"⬜ Pastos livres","Nenhum pasto livre.")}`;
 }
