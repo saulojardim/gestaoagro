@@ -274,6 +274,17 @@ async function registrarEvento(animalId,tipo,data,detalhes,extra){
   await put("eventos",ev);
   if(a&&(tipo==="Morte"||tipo==="Venda")){a.status=tipo==="Morte"?"Morto":"Vendido";await put("animais",a);}
 }
+async function excluirEvento(eventoId,animalId){
+  if(!confirm("Excluir este registro do histórico?"))return;
+  const ev=await get("eventos",eventoId);
+  await del("eventos",eventoId);
+  // se era registro de saída (morte/venda) e não sobrou outro, reativa o animal
+  if(ev&&(ev.tipo==="Morte"||ev.tipo==="Venda")){
+    const restantes=(await getAll("eventos")).filter(e=>e.animalId===animalId&&(e.tipo==="Morte"||e.tipo==="Venda"));
+    if(!restantes.length){const a=await get("animais",animalId);if(a){a.status="Ativo";delete a.saida;await put("animais",a);}}
+  }
+  verAnimal(animalId);
+}
 async function moverAnimal(id,novoLote){
   const a=await get("animais",id),de=await get("lotes",a.loteAtualId),para=await get("lotes",novoLote);
   a.loteAtualId=novoLote;await put("animais",a);
@@ -735,7 +746,9 @@ async function verAnimal(id){
   const evItens=eventos.map(e=>{
     const quando=fmt(e.data)+(e.hora?` ${e.hora}`:"");
     const med=e.medicamentoId?`${esc(nomeMed(e.medicamentoId))}${e.via?` (${esc(e.via)})`:""}${e.dose?` · ${esc(e.dose)}`:""}`:"";
-    return `<div class="evt"><div class="tp">${esc(e.tipo)}</div><div class="dt">${quando}</div>${med?`<div class="de">${med}</div>`:""}${e.detalhes?`<div class="de">${esc(e.detalhes)}</div>`:""}</div>`;
+    return `<div class="evt"><div class="row"><div class="tp">${esc(e.tipo)}</div>
+      <button class="btn-fant" style="padding:2px 6px;color:var(--perigo)" onclick="excluirEvento('${e.id}','${id}')">✕</button></div>
+      <div class="dt">${quando}</div>${med?`<div class="de">${med}</div>`:""}${e.detalhes?`<div class="de">${esc(e.detalhes)}</div>`:""}</div>`;
   });
   let tl=eventos.length?verMais(evItens,"evento(s)"):`<div class="meta">Sem eventos ainda.</div>`;
   $t.innerHTML=`<button class="voltar" onclick="voltar()">‹ Voltar</button>
